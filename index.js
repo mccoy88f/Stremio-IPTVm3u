@@ -8,9 +8,9 @@ const zlib = require('zlib');
 const cron = require('node-cron');
 
 const app = express();
-const port = process.env.PORT || 10000; // Usa la porta da Render o 7000 di default
+const port = process.env.PORT || 10000; // Usa la porta da Render o 10000 di default
 
-// Configura il server per servire file statici (ad esempio, index.html)
+// Configura il server per servire file statici
 app.use(express.static(path.join(__dirname)));
 
 // Configura il manifest dell'add-on
@@ -19,14 +19,14 @@ const builder = new addonBuilder({
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-  resources: ['stream', 'catalog'], // Aggiungi 'catalog' alle risorse
-  types: ['channel'], // Definisci il tipo di contenuto
+  resources: ['stream', 'catalog'],
+  types: ['channel'],
   idPrefixes: ['tt'],
   catalogs: [
     {
-      type: 'channel', // Tipo di catalogo
-      id: 'italia', // ID univoco per il catalogo
-      name: 'Canali Italia', // Nome del catalogo
+      type: 'channel',
+      id: 'italia',
+      name: 'Canali Italia',
       extra: [
         {
           name: 'search',
@@ -49,6 +49,9 @@ const M3U_URL = process.env.M3U_URL || 'https://raw.githubusercontent.com/Tundra
 // URL dell'EPG funzionante
 const EPG_URL = 'https://www.epgitalia.tv/gzip';
 
+// Controlla se l'EPG è abilitato
+const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
+
 // Funzione per aggiornare la cache
 async function updateCache() {
   try {
@@ -60,28 +63,31 @@ async function updateCache() {
     parser.push(m3uResponse.data);
     parser.end();
 
-    // Prova a scaricare l'EPG
     let epgData = null;
-    try {
-      const epgResponse = await axios.get(EPG_URL, {
-        responseType: 'arraybuffer'
-      });
-      const decompressed = await new Promise((resolve, reject) => {
-        zlib.gunzip(epgResponse.data, (err, result) => {
-          if (err) reject(err);
-          else resolve(result.toString());
+    if (enableEPG) {
+      console.log('EPG abilitato. Scaricamento in corso...');
+      try {
+        const epgResponse = await axios.get(EPG_URL, {
+          responseType: 'arraybuffer'
         });
-      });
-      epgData = await parseStringPromise(decompressed);
-    } catch (epgError) {
-      console.error('Errore nel caricamento dell\'EPG:', epgError);
-      // Utilizza una cache precedente se disponibile
-      if (cachedData.epg) {
-        epgData = cachedData.epg;
-        console.log('Utilizzo della cache EPG precedente.');
-      } else {
-        throw new Error('Impossibile caricare l\'EPG e nessuna cache disponibile.');
+        const decompressed = await new Promise((resolve, reject) => {
+          zlib.gunzip(epgResponse.data, (err, result) => {
+            if (err) reject(err);
+            else resolve(result.toString());
+          });
+        });
+        epgData = await parseStringPromise(decompressed);
+      } catch (epgError) {
+        console.error('Errore nel caricamento dell\'EPG:', epgError);
+        if (cachedData.epg) {
+          epgData = cachedData.epg;
+          console.log('Utilizzo della cache EPG precedente.');
+        } else {
+          throw new Error('Impossibile caricare l\'EPG e nessuna cache disponibile.');
+        }
       }
+    } else {
+      console.log('EPG disabilitato. Saltato il caricamento.');
     }
 
     // Aggiorna la cache
@@ -97,33 +103,15 @@ async function updateCache() {
   }
 }
 
-// Funzione per ottenere l'icona e i metadati del canale dall'EPG
-function getChannelInfo(epgData, channelName) {
-  if (!epgData || !epgData.tv || !epgData.tv.channel) return {};
-
-  const channel = epgData.tv.channel.find(ch => ch['display-name'][0].toLowerCase().includes(channelName.toLowerCase()));
-  if (!channel) return {};
-
-  return {
-    icon: channel.icon ? channel.icon[0].$.src : '',
-    description: channel['desc'] ? channel['desc'][0] : '',
-    genres: channel.category ? channel.category.map(cat => cat._) : [],
-    programs: channel.programme ? channel.programme.map(prog => ({
-      title: prog.title[0],
-      start: prog.start[0],
-      stop: prog.stop[0],
-      description: prog.desc ? prog.desc[0] : ''
-    })) : []
-  };
-}
-
-// Aggiorna la cache ogni giorno alle 3 di mattina
-cron.schedule('0 3 * * *', () => {
-  updateCache();
-});
-
-// Aggiorna la cache all'avvio dell'add-on
+// Aggiorna la cache all'avvio
 updateCache();
+
+// Aggiorna la cache ogni giorno alle 3:00 del mattino (solo se l'EPG è abilitato)
+if (enableEPG) {
+  cron.schedule('0 3 * * *', () => {
+    updateCache();
+  });
+}
 
 // Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
