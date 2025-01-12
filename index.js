@@ -5,6 +5,7 @@ const parser = require('iptv-playlist-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
+const http = require('http'); // Aggiungi questa linea
 
 // Porta unica per l'addon Stremio
 const port = process.env.PORT || 10000;
@@ -264,7 +265,7 @@ function getChannelInfo(epgData, channelName) {
 
 // Avvia l'addon
 const addonInterface = builder.getInterface();
-const server = addonInterface.createServer();
+const server = http.createServer(addonInterface);
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`Addon in ascolto sulla porta ${port}`);
