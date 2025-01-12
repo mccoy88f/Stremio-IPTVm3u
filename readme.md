@@ -8,6 +8,7 @@ Un add-on per Stremio che carica una playlist M3U di IPTV Italia con supporto EP
 - Ricerca dei canali
 - Aggiornamento automatico della cache ogni giorno alle 3 di mattina (solo se l'EPG è abilitato)
 - Interfaccia web per aggiungere l'add-on a Stremio con un solo clic
+- Uso di MediaFlow Proxy per vedere i canali anche su android e web
 
 ## Configurazione
 L'addon utilizza le seguenti variabili d'ambiente:
@@ -26,17 +27,14 @@ L'addon utilizza le seguenti variabili d'ambiente:
 - Se abilitato, utilizza l'EPG da: `https://www.epgitalia.tv/gzip`
 - **IMPORTANTE**: Si consiglia di mantenere l'EPG disabilitato se si fa il deploy su Render con il piano gratuito a causa delle limitazioni di risorse
 
-### PROXY
-- Inserire nelle variabili d'ambiente queste due variabili
-- PROXY_URL: (opzionale) URL del media proxy.
-- PROXY_PASSWORD: (opzionale) Password del media proxy.
-
 ## Deploy Locale
 1. Clona il repository
 2. Installa le dipendenze con `npm install`
 3. (Opzionale) Imposta la variabile d'ambiente `M3U_URL` se vuoi usare una playlist personalizzata
 4. (Opzionale) Imposta `ENABLE_EPG=yes` se vuoi abilitare l'EPG
-5. Avvia l'add-on con `npm start`
+5. (Opzionale) Imposta la variabile d'ambiente `PROXY_URL`: URL del media proxy. (necessario per vedere i canali su android e web, altrimenti funziona solo da pc)
+6. (Opzionale) Imposta la variabile d'ambiente `PROXY_PASSWORD`: Password del media proxy.
+7. Avvia l'add-on con `npm start`
 
 ## Deploy su Render.com
 1. Collega il repository GitHub a Render.com
@@ -44,6 +42,8 @@ L'addon utilizza le seguenti variabili d'ambiente:
    - **Environment Variables**:
      - `M3U_URL`: (opzionale) URL della tua playlist personalizzata
      - **NON** abilitare l'EPG (`ENABLE_EPG`) sul piano gratuito di Render
+     - `PROXY_URL`: (opzionale) URL del media proxy. (necessario per vedere i canali su android e web, altrimenti funziona solo da pc)
+     - `PROXY_PASSWORD`: (opzionale) Password del media proxy.
 3. Avvia il deploy
 
 ## Aggiungi l'add-on a Stremio
