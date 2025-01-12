@@ -1,58 +1,69 @@
 # Stremio IPTV Add-on
 
-Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.
+Un add-on per Stremio che carica una playlist M3U di IPTV Italia con supporto EPG opzionale.
 
 ## Funzionalità
-- Carica una playlist M3U da un URL configurabile.
-- Utilizza l'EPG per aggiungere icone, descrizioni e programmi in onda (opzionale).
-- Ricerca dei canali.
-- Aggiornamento automatico della cache ogni giorno alle 3 di mattina (solo se l'EPG è abilitato).
-- Pagina HTML per aggiungere l'add-on a Stremio con un solo clic.
+- Carica una playlist M3U da un URL configurabile
+- Supporto EPG opzionale per aggiungere informazioni sui programmi (disabilitato di default)
+- Ricerca dei canali
+- Aggiornamento automatico della cache ogni giorno alle 3 di mattina (solo se l'EPG è abilitato)
+- Interfaccia web per aggiungere l'add-on a Stremio con un solo clic
 
 ## Configurazione
-1. Imposta la variabile d'ambiente `M3U_URL` con l'URL della playlist M3U.
-2. (Opzionale) Imposta la variabile d'ambiente `ENABLE_EPG` su `yes` per abilitare l'EPG o su `no` per disabilitarlo.
-3. Avvia l'add-on con `npm start`.
+L'addon utilizza le seguenti variabili d'ambiente:
+
+### M3U_URL
+- Variabile opzionale
+- URL della playlist M3U
+- Se non specificata, viene utilizzata la playlist predefinita: `https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u`
+
+### ENABLE_EPG
+- Variabile opzionale
+- Controlla se l'EPG è abilitato
+- Valori possibili:
+  - `yes`: abilita l'EPG
+  - non impostata o qualsiasi altro valore: EPG disabilitato
+- Se abilitato, utilizza l'EPG da: `https://www.epgitalia.tv/gzip`
+- **IMPORTANTE**: Si consiglia di mantenere l'EPG disabilitato se si fa il deploy su Render con il piano gratuito a causa delle limitazioni di risorse
+
+## Deploy Locale
+1. Clona il repository
+2. Installa le dipendenze con `npm install`
+3. (Opzionale) Imposta la variabile d'ambiente `M3U_URL` se vuoi usare una playlist personalizzata
+4. (Opzionale) Imposta `ENABLE_EPG=yes` se vuoi abilitare l'EPG
+5. Avvia l'add-on con `npm start`
 
 ## Deploy su Render.com
-1. Collega il repository GitHub a Render.com.
-2. Configura le variabili d'ambiente `M3U_URL` e `ENABLE_EPG`.
-3. Avvia il deploy.
+1. Collega il repository GitHub a Render.com
+2. Configura il servizio:
+   - **Environment Variables**:
+     - `M3U_URL`: (opzionale) URL della tua playlist personalizzata
+     - **NON** abilitare l'EPG (`ENABLE_EPG`) sul piano gratuito di Render
+3. Avvia il deploy
 
 ## Aggiungi l'add-on a Stremio
-Puoi aggiungere l'add-on a Stremio in due modi:
 
-### Metodo 1: Tramite la pagina HTML
-1. Vai alla homepage del tuo server (ad esempio, `https://<your-render-url>.onrender.com`).
-2. Clicca sul pulsante **"Aggiungi a Stremio"**.
-3. Stremio aprirà automaticamente l'add-on e ti chiederà di installarlo.
+### Metodo 1: Tramite la pagina web
+1. Apri la homepage del server (es. `http://localhost:10000` per installazioni locali)
+2. Clicca sul pulsante "Aggiungi a Stremio"
 
 ### Metodo 2: Manualmente
-1. Vai su "Addons" > "Addon Repository" > "Install from URL".
-2. Inserisci l'URL del manifest (ad esempio, `https://<your-render-url>.onrender.com/manifest.json`).
+1. Apri Stremio
+2. Vai su "Addons" > "Community Addons"
+3. Incolla l'URL del manifest (es. `http://localhost:10000/manifest.json` per installazioni locali)
 
-## Struttura del progetto
-- `index.js`: Il server principale che gestisce la logica dell'add-on e serve la pagina HTML.
-- `index.html`: La pagina HTML che permette di aggiungere l'add-on a Stremio con un clic.
-- `package.json`: File di configurazione delle dipendenze e degli script.
-- `README.md`: Questa guida.
+## Struttura del Progetto
+- `index.js`: Server principale che gestisce la logica dell'add-on
+- `index.html`: Pagina web per l'installazione dell'add-on
+- `package.json`: Configurazione del progetto e dipendenze
+- `README.md`: Questa documentazione
 
-## Dipendenze
-- `stremio-addon-sdk`: SDK per creare add-on per Stremio.
-- `axios`: Per effettuare richieste HTTP.
-- `m3u8-parser`: Per analizzare la playlist M3U.
-- `xml2js`: Per analizzare l'EPG in formato XML (opzionale).
-- `node-cron`: Per aggiornare la cache automaticamente (solo se l'EPG è abilitato).
-- `express`: Per creare il server web.
-- `path`: Per gestire i percorsi dei file.
-
-## Come contribuire
-Se vuoi contribuire al progetto, segui questi passaggi:
-1. Fai un fork del repository.
-2. Crea un nuovo branch per la tua feature (`git checkout -b feature/nuova-feature`).
-3. Fai commit delle tue modifiche (`git commit -m 'Aggiunta nuova feature'`).
-4. Pusha il branch (`git push origin feature/nuova-feature`).
-5. Apri una Pull Request.
+## Come Contribuire
+1. Fai un fork del repository
+2. Crea un branch per la tua feature (`git checkout -b feature/NuovaFeature`)
+3. Fai commit delle modifiche (`git commit -am 'Aggiunta nuova feature'`)
+4. Pusha il branch (`git push origin feature/NuovaFeature`)
+5. Apri una Pull Request
 
 ## Licenza
-Questo progetto è rilasciato sotto la licenza MIT. Consulta il file `LICENSE` per ulteriori dettagli.
+Questo progetto è rilasciato sotto licenza MIT. Vedi il file `LICENSE` per i dettagli.
