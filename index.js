@@ -8,7 +8,7 @@ const zlib = require('zlib');
 const cron = require('node-cron');
 
 const app = express();
-const port = process.env.PORT || 7000; // Usa la porta da Render o 7000 di default
+const port = process.env.PORT || 10000; // Usa la porta da Render o 7000 di default
 
 // Configura il server per servire file statici (ad esempio, index.html)
 app.use(express.static(path.join(__dirname)));
