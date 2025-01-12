@@ -210,11 +210,8 @@ builder.defineStreamHandler(async (args) => {
     const streams = [directStream];
 
     if (PROXY_URL) {
-      // Costruisci l'URL del proxy con i parametri richiesti
-      const proxyStreamUrl = `${PROXY_URL}/proxy/hls/manifest.m3u8?
-        api_password=${PROXY_PASSWORD}&
-        d=${channel.url}&
-        h_User-Agent=${encodeURIComponent(userAgent)}`;
+      // Costruisci l'URL del proxy con i parametri richiesti (senza spazi)
+      const proxyStreamUrl = `${PROXY_URL}/proxy/hls/manifest.m3u8?api_password=${PROXY_PASSWORD}&d=${encodeURIComponent(channel.url)}&h_User-Agent=${encodeURIComponent(userAgent)}`;
 
       // Prova a verificare se il flusso è accessibile
       try {
