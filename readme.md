@@ -26,6 +26,11 @@ L'addon utilizza le seguenti variabili d'ambiente:
 - Se abilitato, utilizza l'EPG da: `https://www.epgitalia.tv/gzip`
 - **IMPORTANTE**: Si consiglia di mantenere l'EPG disabilitato se si fa il deploy su Render con il piano gratuito a causa delle limitazioni di risorse
 
+### PROXY
+- Inserire nelle variabili d'ambiente queste due variabili
+- PROXY_URL: (opzionale) URL del media proxy.
+- PROXY_PASSWORD: (opzionale) Password del media proxy.
+
 ## Deploy Locale
 1. Clona il repository
 2. Installa le dipendenze con `npm install`
