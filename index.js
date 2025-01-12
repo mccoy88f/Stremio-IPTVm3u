@@ -212,6 +212,7 @@ builder.defineStreamHandler(async (args) => {
       title: channel.name,
       url: channel.url,
       behaviorHints: {
+        notwebReady: "true",
         bingeGroup: "tv"
       }
     };
