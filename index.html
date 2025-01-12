@@ -71,6 +71,22 @@
             outline: none;
             border-color: #007bff;
         }
+        .generated-link {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .generated-link input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+        }
+        .generated-link input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -92,30 +108,40 @@
             <input type="password" id="proxy-password" placeholder="Inserisci la password del media proxy">
         </div>
 
-        <button onclick="addToStremio()">Aggiungi a Stremio</button>
+        <!-- Pulsante per generare il link -->
+        <button onclick="generateLink()">Genera link</button>
+
+        <!-- Campo per mostrare il link generato -->
+        <div class="generated-link">
+            <label for="generated-link">Link da importare in Stremio:</label>
+            <input type="text" id="generated-link" readonly placeholder="Clicca su 'Genera link' per creare il link">
+        </div>
     </div>
 
     <script>
-        function addToStremio() {
+        function generateLink() {
+            // Genera l'URL del manifest.json
             const manifestUrl = window.location.origin + '/manifest.json';
-            const stremioUrl = `stremio://${manifestUrl}/manifest.json`;
 
             // Recupera i valori del media proxy (se inseriti)
             const proxyUrl = document.getElementById('proxy-url').value;
             const proxyPassword = document.getElementById('proxy-password').value;
 
-            // Se l'utente ha inserito un media proxy, aggiungi i parametri alla richiesta
+            // Crea l'URL completo con i parametri del proxy (se presenti)
+            let fullUrl = manifestUrl;
             if (proxyUrl) {
                 const proxyParams = new URLSearchParams();
                 if (proxyUrl) proxyParams.append('proxyUrl', proxyUrl);
                 if (proxyPassword) proxyParams.append('proxyPassword', proxyPassword);
-
-                // Aggiungi i parametri del proxy all'URL di Stremio
-                window.location.href = `${stremioUrl}?${proxyParams.toString()}`;
-            } else {
-                // Se non è stato inserito un media proxy, procedi normalmente
-                window.location.href = stremioUrl;
+                fullUrl += `?${proxyParams.toString()}`;
             }
+
+            // Mostra il link generato nel campo di testo
+            const generatedLinkInput = document.getElementById('generated-link');
+            generatedLinkInput.value = fullUrl;
+
+            // Seleziona automaticamente il testo per facilitare la copia
+            generatedLinkInput.select();
         }
     </script>
 </body>
