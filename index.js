@@ -116,6 +116,7 @@ if (enableEPG) {
 // Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
   try {
+    console.log('Catalog richiesto:', args);
     const { search } = args.extra || {};
 
     if (!cachedData.m3u || !cachedData.epg) {
@@ -132,13 +133,14 @@ builder.defineCatalogHandler(async (args) => {
           id: channelName,
           type: 'channel',
           name: channelName,
-          poster: icon,
-          description: description,
-          genres: genres,
-          programs: programs,
+          poster: icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          description: description || channelName,
+          genres: genres || ['TV'],
+          programs: programs || [],
         };
       });
 
+    console.log('Canali trovati:', filteredChannels.length);
     return Promise.resolve({ metas: filteredChannels });
   } catch (error) {
     console.error('Errore nella ricerca dei canali:', error);
@@ -153,27 +155,33 @@ builder.defineStreamHandler(async (args) => {
       await updateCache();
     }
 
-    const streams = cachedData.m3u.map(item => {
-      const channelName = item.name;
-      const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
+    console.log('Stream richiesto per:', args.id);
 
-      return {
-        name: channelName,
-        title: channelName,
-        url: item.url,
-        icon: icon,
-        description: description,
-        genres: genres,
-        programs: programs,
-        behaviorHints: {
-          notWebReady: true,
-        },
-      };
-    });
+    // Trova il canale specifico richiesto
+    const channel = cachedData.m3u.find(item => item.name === args.id);
+    
+    if (!channel) {
+      console.log('Canale non trovato:', args.id);
+      return Promise.resolve({ streams: [] });
+    }
 
-    return Promise.resolve({ streams });
+    const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channel.name);
+
+    const stream = {
+      name: channel.name,
+      title: channel.name,
+      url: channel.url,
+      description: description || channel.name,
+      behaviorHints: {
+        notWebReady: true,
+        bingeGroup: "tv"
+      }
+    };
+
+    console.log('Stream trovato per:', args.id, 'URL:', channel.url);
+    return Promise.resolve({ streams: [stream] });
   } catch (error) {
-    console.error('Errore nel caricamento della playlist o dell\'EPG:', error);
+    console.error('Errore nel caricamento dello stream:', error);
     return Promise.resolve({ streams: [] });
   }
 });
