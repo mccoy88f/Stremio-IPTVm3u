@@ -19,10 +19,22 @@ const builder = new addonBuilder({
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-  resources: ['stream'],
-  types: ['channel'],
+  resources: ['stream', 'catalog'], // Aggiungi 'catalog' alle risorse
+  types: ['channel'], // Definisci il tipo di contenuto
   idPrefixes: ['tt'],
-  catalogs: [] // Aggiungi questa linea
+  catalogs: [
+    {
+      type: 'channel', // Tipo di catalogo
+      id: 'italia', // ID univoco per il catalogo
+      name: 'Canali Italia', // Nome del catalogo
+      extra: [
+        {
+          name: 'search',
+          isRequired: false
+        }
+      ]
+    }
+  ]
 });
 
 let cachedData = {
@@ -190,10 +202,22 @@ app.get('/manifest.json', (req, res) => {
     version: '1.0.0',
     name: 'IPTV Italia Addon',
     description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-    resources: ['stream'],
+    resources: ['stream', 'catalog'],
     types: ['channel'],
     idPrefixes: ['tt'],
-    catalogs: []
+    catalogs: [
+      {
+        type: 'channel',
+        id: 'italia',
+        name: 'Canali Italia',
+        extra: [
+          {
+            name: 'search',
+            isRequired: false
+          }
+        ]
+      }
+    ]
   });
 });
 
