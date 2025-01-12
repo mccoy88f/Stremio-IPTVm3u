@@ -67,3 +67,4 @@ L'addon utilizza le seguenti variabili d'ambiente:
 
 ## Licenza
 Questo progetto è rilasciato sotto licenza MIT. Vedi il file `LICENSE` per i dettagli.
+L'icona appartiene a Iconic Panda utilizzata senza fini commerciali con attribuzione: https://www.flaticon.com/free-icon/tv_18223703?term=tv&page=1&position=2&origin=tag&related_id=18223703
