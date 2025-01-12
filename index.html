@@ -51,6 +51,26 @@
             margin: 20px 0;
             line-height: 1.5;
         }
+        .media-proxy-form {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .media-proxy-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .media-proxy-form input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .media-proxy-form input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -59,7 +79,19 @@
         <h1>IPTV Italia per Stremio</h1>
         <p class="description">
             Aggiungi l'addon IPTV Italia al tuo Stremio per guardare i canali TV italiani disponibili gratuitamente.
+            <br><br>
+            <strong>Nota:</strong> Se configuri un media proxy, nella lista degli stream compariranno due opzioni: una diretta e una che passa attraverso il proxy.
         </p>
+
+        <!-- Form per il media proxy (opzionale) -->
+        <div class="media-proxy-form">
+            <label for="proxy-url">URL Media Proxy (opzionale):</label>
+            <input type="text" id="proxy-url" placeholder="Inserisci l'URL del media proxy">
+
+            <label for="proxy-password">Password Media Proxy (opzionale):</label>
+            <input type="password" id="proxy-password" placeholder="Inserisci la password del media proxy">
+        </div>
+
         <button onclick="addToStremio()">Aggiungi a Stremio</button>
     </div>
 
@@ -67,7 +99,23 @@
         function addToStremio() {
             const manifestUrl = window.location.origin + '/manifest.json';
             const stremioUrl = `stremio://${manifestUrl}/manifest.json`;
-            window.location.href = stremioUrl;
+
+            // Recupera i valori del media proxy (se inseriti)
+            const proxyUrl = document.getElementById('proxy-url').value;
+            const proxyPassword = document.getElementById('proxy-password').value;
+
+            // Se l'utente ha inserito un media proxy, aggiungi i parametri alla richiesta
+            if (proxyUrl) {
+                const proxyParams = new URLSearchParams();
+                if (proxyUrl) proxyParams.append('proxyUrl', proxyUrl);
+                if (proxyPassword) proxyParams.append('proxyPassword', proxyPassword);
+
+                // Aggiungi i parametri del proxy all'URL di Stremio
+                window.location.href = `${stremioUrl}?${proxyParams.toString()}`;
+            } else {
+                // Se non è stato inserito un media proxy, procedi normalmente
+                window.location.href = stremioUrl;
+            }
         }
     </script>
 </body>
