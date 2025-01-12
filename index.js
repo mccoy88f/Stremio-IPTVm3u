@@ -143,6 +143,16 @@ builder.defineCatalogHandler(async (args) => {
         // Estrai le informazioni aggiuntive dalla playlist M3U
         const tvgLogo = item.tvg?.logo || null;
         const groupTitle = item.group?.title || null;
+        const tvgId = item.tvg?.id || null;
+
+        // Crea una descrizione base se l'EPG non è disponibile
+        const baseDescription = [
+          `Nome canale: ${channelName}`,
+          tvgId ? `ID canale: ${tvgId}` : null,
+          groupTitle ? `Gruppo: ${groupTitle}` : null,
+          `\nQuesta playlist è fornita da: ${M3U_URL}`,
+          enableEPG ? null : '\nNota: EPG non abilitato'
+        ].filter(Boolean).join('\n');
 
         const meta = {
           id: 'tv' + channelName,
@@ -151,7 +161,7 @@ builder.defineCatalogHandler(async (args) => {
           poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
           background: tvgLogo || icon,
           logo: tvgLogo || icon,
-          description: description || channelName,
+          description: description || baseDescription,
           genres: groupTitle ? [groupTitle] : (genres || ['TV']),
           posterShape: 'square'
         };
