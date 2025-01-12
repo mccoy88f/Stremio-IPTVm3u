@@ -12,7 +12,8 @@ const builder = new addonBuilder({
     description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
     resources: ['stream', 'catalog'],
     types: ['channel'],
-    idPrefixes: ['tt']
+    idPrefixes: ['tt'],
+    catalogs: [] // Aggiungi questa linea
 });
 
 let cachedData = {
@@ -21,21 +22,17 @@ let cachedData = {
     lastUpdated: null
 };
 
-// Leggi l'URL della playlist M3U dalla variabile d'ambiente
 const M3U_URL = process.env.M3U_URL || 'https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u';
 
-// Funzione per aggiornare la cache
 async function updateCache() {
     try {
         console.log('Aggiornamento della cache in corso...');
 
-        // Scarica la playlist M3U
         const m3uResponse = await axios.get(M3U_URL);
         const parser = new Parser();
         parser.push(m3uResponse.data);
         parser.end();
 
-        // Scarica l'EPG
         const epgResponse = await axios.get('https://iptv-org.github.io/epg/guides/it.xml.gz', {
             responseType: 'arraybuffer'
         });
@@ -47,7 +44,6 @@ async function updateCache() {
         });
         const epgData = await parseStringPromise(decompressed);
 
-        // Aggiorna la cache
         cachedData = {
             m3u: parser.manifest.items,
             epg: epgData,
@@ -60,7 +56,6 @@ async function updateCache() {
     }
 }
 
-// Funzione per ottenere l'icona e i metadati del canale dall'EPG
 function getChannelInfo(epgData, channelName) {
     if (!epgData || !epgData.tv || !epgData.tv.channel) return {};
 
@@ -80,25 +75,20 @@ function getChannelInfo(epgData, channelName) {
     };
 }
 
-// Aggiorna la cache ogni giorno alle 3 di mattina
 cron.schedule('0 3 * * *', () => {
     updateCache();
 });
 
-// Aggiorna la cache all'avvio dell'add-on
 updateCache();
 
-// Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
     try {
         const { search } = args.extra || {};
 
-        // Se la cache è vuota, aggiornala
         if (!cachedData.m3u || !cachedData.epg) {
             await updateCache();
         }
 
-        // Filtra i canali in base alla ricerca
         const filteredChannels = cachedData.m3u
             .filter(item => item.name.toLowerCase().includes(search.toLowerCase()))
             .map(item => {
@@ -123,15 +113,12 @@ builder.defineCatalogHandler(async (args) => {
     }
 });
 
-// Handler per gli stream
 builder.defineStreamHandler(async (args) => {
     try {
-        // Se la cache è vuota, aggiornala
         if (!cachedData.m3u || !cachedData.epg) {
             await updateCache();
         }
 
-        // Crea gli stream utilizzando i dati memorizzati nella cache
         const streams = cachedData.m3u.map(item => {
             const channelName = item.name;
             const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
