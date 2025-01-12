@@ -1,85 +1,4 @@
-// Handler per gli stream
-builder.defineStreamHandler(async (args) => {
-  try {
-    console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
-    
-    if (!cachedData.m3u || !cachedData.epg) {
-      await updateCache();
-    }
-
-    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
-    const channelName = args.id.replace(/^tv/, '');
-    console.log('Cerco canale con nome:', channelName);
-
-    // Trova il canale specifico richiesto
-    const channel = cachedData.m3u.find(item => item.name === channelName);
-    
-    if (!channel) {
-      console.log('Canale non trovato. Nome cercato:', channelName);
-      return Promise.resolve({ streams: [] });
-    }
-
-    console.log('Canale trovato:', channel);
-
-    const stream = {
-      title: channel.name,
-      url: channel.url,
-      behaviorHints: {
-        notWebReady: true,
-        bingeGroup: "tv"
-      }
-    };
-
-    console.log('Stream generato:', JSON.stringify(stream, null, 2));
-    return Promise.resolve({ streams: [stream] });
-
-  } catch (error) {
-    console.error('Errore nel caricamento dello stream:', error);
-    return Promise.resolve({ streams: [] });
-  }
-});// Handler per la ricerca dei canali
-builder.defineCatalogHandler(async (args) => {
-  try {
-    console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
-    const { search } = args.extra || {};
-
-    if (!cachedData.m3u || !cachedData.epg) {
-      await updateCache();
-    }
-
-    const filteredChannels = cachedData.m3u
-      .filter(item => !search || item.name.toLowerCase().includes(search.toLowerCase()))
-      .map(item => {
-        const channelName = item.name;
-        const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
-        
-        // Estrai le informazioni aggiuntive dalla playlist M3U
-        const tvgLogo = item.tvg?.logo || null;
-        const groupTitle = item.group?.title || null;
-
-        const meta = {
-          id: 'tv' + channelName,
-          type: 'tv',
-          name: channelName,
-          poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
-          background: tvgLogo || icon,
-          logo: tvgLogo || icon,
-          description: description || channelName,
-          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
-          posterShape: 'square'
-        };
-
-        console.log('Creato meta per canale:', JSON.stringify(meta, null, 2));
-        return meta;
-      });
-
-    console.log(`Trovati ${filteredChannels.length} canali`);
-    return Promise.resolve({ metas: filteredChannels });
-  } catch (error) {
-    console.error('Errore nella ricerca dei canali:', error);
-    return Promise.resolve({ metas: [] });
-  }
-});const addonSDK = require('stremio-addon-sdk');
+const addonSDK = require('stremio-addon-sdk');
 const { addonBuilder, serveHTTP } = addonSDK;
 const axios = require('axios');
 const parser = require('iptv-playlist-parser');
@@ -220,14 +139,20 @@ builder.defineCatalogHandler(async (args) => {
       .map(item => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
+        
+        // Estrai le informazioni aggiuntive dalla playlist M3U
+        const tvgLogo = item.tvg?.logo || null;
+        const groupTitle = item.group?.title || null;
 
         const meta = {
-          id: channelName,  // Assicurati che questo ID corrisponda a quello usato nello stream handler
-          type: 'channel',
+          id: 'tv' + channelName,
+          type: 'tv',
           name: channelName,
-          poster: icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          background: tvgLogo || icon,
+          logo: tvgLogo || icon,
           description: description || channelName,
-          genres: genres || ['TV'],
+          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
           posterShape: 'square'
         };
 
@@ -252,26 +177,15 @@ builder.defineStreamHandler(async (args) => {
       await updateCache();
     }
 
-    // Log dei primi 5 canali disponibili per debug
-    console.log('Primi 5 canali disponibili:', 
-      cachedData.m3u.slice(0, 5).map(item => ({
-        name: item.name,
-        url: item.url
-      }))
-    );
+    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
+    const channelName = args.id.replace(/^tv/, '');
+    console.log('Cerco canale con nome:', channelName);
 
     // Trova il canale specifico richiesto
-    let channel = cachedData.m3u.find(item => item.name === args.id);
-    
-    // Se non troviamo il canale, proviamo a cercare senza il prefisso "tt"
-    if (!channel && args.id.startsWith('tt')) {
-      const idWithoutPrefix = args.id.replace(/^tt/, '');
-      channel = cachedData.m3u.find(item => item.name === idWithoutPrefix);
-    }
+    const channel = cachedData.m3u.find(item => item.name === channelName);
     
     if (!channel) {
-      console.log('Canale non trovato. ID richiesto:', args.id);
-      console.log('Tipi di ID disponibili:', cachedData.m3u.slice(0, 5).map(item => typeof item.name));
+      console.log('Canale non trovato. Nome cercato:', channelName);
       return Promise.resolve({ streams: [] });
     }
 
