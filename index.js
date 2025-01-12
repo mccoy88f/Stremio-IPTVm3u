@@ -48,6 +48,10 @@ const EPG_URL = 'https://www.epgitalia.tv/gzip';
 // Controlla se l'EPG è abilitato
 const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
 
+// Leggi i parametri del proxy dalle variabili d'ambiente
+const PROXY_URL = process.env.PROXY_URL || null;
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || null;
+
 // Funzione per aggiornare la cache
 async function updateCache() {
   try {
@@ -191,8 +195,9 @@ builder.defineStreamHandler(async (args) => {
 
     console.log('Canale trovato:', channel);
 
-    const stream = {
-      title: channel.name,
+    // Stream diretto (senza media proxy)
+    const directStream = {
+      title: `${channel.name} (Diretto)`,
       url: channel.url,
       behaviorHints: {
         notWebReady: true,
@@ -200,8 +205,30 @@ builder.defineStreamHandler(async (args) => {
       }
     };
 
-    console.log('Stream generato:', JSON.stringify(stream, null, 2));
-    return Promise.resolve({ streams: [stream] });
+    const streams = [directStream];
+
+    // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
+    if (PROXY_URL) {
+      const proxyParams = new URLSearchParams();
+      if (PROXY_PASSWORD) proxyParams.append('password', PROXY_PASSWORD);
+      proxyParams.append('url', channel.url);
+
+      const proxyStreamUrl = `${PROXY_URL}?${proxyParams.toString()}`;
+
+      const proxyStream = {
+        title: `${channel.name} (Media Proxy)`,
+        url: proxyStreamUrl,
+        behaviorHints: {
+          notWebReady: false,
+          bingeGroup: "tv"
+        }
+      };
+
+      streams.push(proxyStream);  // Aggiungi lo stream con il media proxy alla lista
+    }
+
+    console.log('Stream generati:', JSON.stringify(streams, null, 2));
+    return Promise.resolve({ streams });
 
   } catch (error) {
     console.error('Errore nel caricamento dello stream:', error);
