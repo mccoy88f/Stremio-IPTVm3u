@@ -11,8 +11,8 @@ RUN npm install
 # Copia il resto del codice
 COPY . .
 
-# Esponi la porta 7000 (usata da Stremio)
-EXPOSE 7000
+# Esponi la porta 10000 (usata dal server)
+EXPOSE 10000
 
 # Avvia l'add-on
 CMD ["node", "index.js"]
