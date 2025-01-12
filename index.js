@@ -116,7 +116,7 @@ if (enableEPG) {
 // Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
   try {
-    console.log('Catalog richiesto:', args);
+    console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
     const { search } = args.extra || {};
 
     if (!cachedData.m3u || !cachedData.epg) {
@@ -129,18 +129,21 @@ builder.defineCatalogHandler(async (args) => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
 
-        return {
-          id: channelName,
+        const meta = {
+          id: channelName,  // Assicurati che questo ID corrisponda a quello usato nello stream handler
           type: 'channel',
           name: channelName,
           poster: icon || 'https://www.stremio.com/website/stremio-white-small.png',
           description: description || channelName,
           genres: genres || ['TV'],
-          programs: programs || [],
+          posterShape: 'square'
         };
+
+        console.log('Creato meta per canale:', JSON.stringify(meta, null, 2));
+        return meta;
       });
 
-    console.log('Canali trovati:', filteredChannels.length);
+    console.log(`Trovati ${filteredChannels.length} canali`);
     return Promise.resolve({ metas: filteredChannels });
   } catch (error) {
     console.error('Errore nella ricerca dei canali:', error);
@@ -151,35 +154,49 @@ builder.defineCatalogHandler(async (args) => {
 // Handler per gli stream
 builder.defineStreamHandler(async (args) => {
   try {
+    console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
+    
     if (!cachedData.m3u || !cachedData.epg) {
       await updateCache();
     }
 
-    console.log('Stream richiesto per:', args.id);
+    // Log dei primi 5 canali disponibili per debug
+    console.log('Primi 5 canali disponibili:', 
+      cachedData.m3u.slice(0, 5).map(item => ({
+        name: item.name,
+        url: item.url
+      }))
+    );
 
     // Trova il canale specifico richiesto
-    const channel = cachedData.m3u.find(item => item.name === args.id);
+    let channel = cachedData.m3u.find(item => item.name === args.id);
+    
+    // Se non troviamo il canale, proviamo a cercare senza il prefisso "tt"
+    if (!channel && args.id.startsWith('tt')) {
+      const idWithoutPrefix = args.id.replace(/^tt/, '');
+      channel = cachedData.m3u.find(item => item.name === idWithoutPrefix);
+    }
     
     if (!channel) {
-      console.log('Canale non trovato:', args.id);
+      console.log('Canale non trovato. ID richiesto:', args.id);
+      console.log('Tipi di ID disponibili:', cachedData.m3u.slice(0, 5).map(item => typeof item.name));
       return Promise.resolve({ streams: [] });
     }
 
-    const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channel.name);
+    console.log('Canale trovato:', channel);
 
     const stream = {
-      name: channel.name,
       title: channel.name,
       url: channel.url,
-      description: description || channel.name,
       behaviorHints: {
         notWebReady: true,
         bingeGroup: "tv"
       }
     };
 
-    console.log('Stream trovato per:', args.id, 'URL:', channel.url);
+    console.log('Stream generato:', JSON.stringify(stream, null, 2));
     return Promise.resolve({ streams: [stream] });
+
   } catch (error) {
     console.error('Errore nel caricamento dello stream:', error);
     return Promise.resolve({ streams: [] });
