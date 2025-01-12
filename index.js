@@ -264,6 +264,8 @@ function getChannelInfo(epgData, channelName) {
 
 // Avvia l'addon
 const addonInterface = builder.getInterface();
-addonInterface.listen(port, '0.0.0.0', () => {
+const server = addonInterface.createServer();
+
+server.listen(port, '0.0.0.0', () => {
   console.log(`Addon in ascolto sulla porta ${port}`);
 });
