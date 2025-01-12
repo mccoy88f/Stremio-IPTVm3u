@@ -1,21 +1,16 @@
-const express = require('express');
-const path = require('path');
-const { addonBuilder } = require('stremio-addon-sdk');
+const addonSDK = require('stremio-addon-sdk');
+const { addonBuilder, serveHTTP } = addonSDK;
 const axios = require('axios');
-const { Parser } = require('iptv-playlist-parser'); // Usiamo iptv-playlist-parser
+const parser = require('iptv-playlist-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
 
-const app = express();
-const port = process.env.PORT || 10000; // Usa la porta da Render o 10000 di default
-
-// Configura il server per servire file statici
-app.use(express.static(path.join(__dirname)));
+const port = process.env.PORT || 10000;
 
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
-  id: 'org.example.iptvaddon',
+  id: 'org.mccoy88f.iptvaddon',
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
@@ -30,17 +25,17 @@ const builder = new addonBuilder({
       extra: [
         {
           name: 'search',
-          isRequired: false
-        }
-      ]
-    }
-  ]
+          isRequired: false,
+        },
+      ],
+    },
+  ],
 });
 
 let cachedData = {
   m3u: null,
   epg: null,
-  lastUpdated: null
+  lastUpdated: null,
 };
 
 // Leggi l'URL della playlist M3U dalla variabile d'ambiente
@@ -59,10 +54,6 @@ async function updateCache() {
 
     // Scarica la playlist M3U
     const m3uResponse = await axios.get(M3U_URL);
-    console.log('Risposta M3U:', m3uResponse.data); // Debug
-
-    // Usiamo iptv-playlist-parser per analizzare la playlist
-    const parser = new Parser();
     const playlist = parser.parse(m3uResponse.data);
 
     console.log('Playlist M3U caricata correttamente. Numero di canali:', playlist.items.length);
@@ -72,7 +63,7 @@ async function updateCache() {
       console.log('EPG abilitato. Scaricamento in corso...');
       try {
         const epgResponse = await axios.get(EPG_URL, {
-          responseType: 'arraybuffer'
+          responseType: 'arraybuffer',
         });
         const decompressed = await new Promise((resolve, reject) => {
           zlib.gunzip(epgResponse.data, (err, result) => {
@@ -97,9 +88,9 @@ async function updateCache() {
 
     // Aggiorna la cache
     cachedData = {
-      m3u: playlist.items, // Usiamo playlist.items invece di parser.manifest.items
+      m3u: playlist.items,
       epg: epgData,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
 
     console.log('Cache aggiornata con successo!');
@@ -132,7 +123,7 @@ builder.defineCatalogHandler(async (args) => {
     }
 
     const filteredChannels = cachedData.m3u
-      .filter(item => item.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(item => !search || item.name.toLowerCase().includes(search.toLowerCase()))
       .map(item => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
@@ -144,7 +135,7 @@ builder.defineCatalogHandler(async (args) => {
           poster: icon,
           description: description,
           genres: genres,
-          programs: programs
+          programs: programs,
         };
       });
 
@@ -163,7 +154,6 @@ builder.defineStreamHandler(async (args) => {
     }
 
     const streams = cachedData.m3u.map(item => {
-      console.log('Stream URL:', item.url); // Log dei link agli stream
       const channelName = item.name;
       const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
 
@@ -176,8 +166,8 @@ builder.defineStreamHandler(async (args) => {
         genres: genres,
         programs: programs,
         behaviorHints: {
-          notWebReady: true
-        }
+          notWebReady: true,
+        },
       };
     });
 
@@ -188,45 +178,6 @@ builder.defineStreamHandler(async (args) => {
   }
 });
 
-// Route per la homepage
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Route per il manifest dell'add-on
-app.get('/manifest.json', (req, res) => {
-  res.json({
-    id: 'org.example.iptvaddon',
-    version: '1.0.0',
-    name: 'IPTV Italia Addon',
-    description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-    resources: ['stream', 'catalog'],
-    types: ['channel'],
-    idPrefixes: ['tt'],
-    catalogs: [
-      {
-        type: 'channel',
-        id: 'italia',
-        name: 'Canali Italia',
-        extra: [
-          {
-            name: 'search',
-            isRequired: false
-          }
-        ]
-      }
-    ]
-  });
-});
-
-// Avvia il server
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server in ascolto sulla porta ${port}`);
-});
-
-// Esporta l'interfaccia dell'add-on
-module.exports = builder.getInterface();
-
 // Funzione per ottenere le informazioni del canale dall'EPG
 function getChannelInfo(epgData, channelName) {
   if (!epgData) {
@@ -234,7 +185,7 @@ function getChannelInfo(epgData, channelName) {
       icon: null,
       description: null,
       genres: [],
-      programs: []
+      programs: [],
     };
   }
 
@@ -244,7 +195,7 @@ function getChannelInfo(epgData, channelName) {
       icon: null,
       description: null,
       genres: [],
-      programs: []
+      programs: [],
     };
   }
 
@@ -252,6 +203,12 @@ function getChannelInfo(epgData, channelName) {
     icon: channelInfo.icon,
     description: channelInfo.description,
     genres: channelInfo.genres || [],
-    programs: channelInfo.programs || []
+    programs: channelInfo.programs || [],
   };
 }
+
+// Avvia il server HTTP
+serveHTTP(builder.getInterface(), { port: port });
+
+// Se vuoi pubblicare l'addon su Stremio Central, usa questa riga:
+// publishToCentral("https://<your-domain>/manifest.json");
