@@ -1,16 +1,15 @@
 const express = require('express');
 const path = require('path');
 const addonSDK = require('stremio-addon-sdk');
-const { addonBuilder, serveHTTP } = addonSDK;
+const { addonBuilder } = addonSDK;
 const axios = require('axios');
 const parser = require('iptv-playlist-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
 
-// Porte separate per Express e l'addon Stremio
-const expressPort = process.env.PORT || 10000; // Porta per Express (index.html)
-const stremioPort = 10001; // Porta per l'addon Stremio
+// Porta unica per Express e l'addon Stremio
+const port = process.env.PORT || 10000;
 
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
@@ -197,7 +196,7 @@ builder.defineStreamHandler(async (args) => {
 
     // Stream diretto (senza media proxy)
     const directStream = {
-      title: `${channel.name} (Diretto)`,  // Aggiungiamo un suffisso per distinguerlo
+      title: `${channel.name} (Diretto)`,
       url: channel.url,
       behaviorHints: {
         notWebReady: true,
@@ -216,7 +215,7 @@ builder.defineStreamHandler(async (args) => {
       const proxyStreamUrl = `${proxyUrl}?${proxyParams.toString()}`;
 
       const proxyStream = {
-        title: `${channel.name} (Media Proxy)`,  // Aggiungiamo un suffisso per distinguerlo
+        title: `${channel.name} (Media Proxy)`,
         url: proxyStreamUrl,
         behaviorHints: {
           notWebReady: false,
@@ -273,10 +272,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Avvia il server Express
-app.listen(expressPort, '0.0.0.0', () => {
-  console.log(`Server Express in ascolto sulla porta ${expressPort}`);
+// Servi il file manifest.json
+app.get('/manifest.json', (req, res) => {
+  res.json(builder.getInterface().manifest);
 });
 
-// Avvia il server HTTP per l'addon Stremio
-serveHTTP(builder.getInterface(), { port: stremioPort });
+// Avvia il server Express
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server in ascolto sulla porta ${port}`);
+});
