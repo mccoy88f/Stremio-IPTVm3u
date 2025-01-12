@@ -4,18 +4,19 @@ Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.
 
 ## Funzionalità
 - Carica una playlist M3U da un URL configurabile.
-- Utilizza l'EPG per aggiungere icone, descrizioni e programmi in onda.
+- Utilizza l'EPG per aggiungere icone, descrizioni e programmi in onda (opzionale).
 - Ricerca dei canali.
-- Aggiornamento automatico della cache ogni giorno alle 3 di mattina.
+- Aggiornamento automatico della cache ogni giorno alle 3 di mattina (solo se l'EPG è abilitato).
 - Pagina HTML per aggiungere l'add-on a Stremio con un solo clic.
 
 ## Configurazione
 1. Imposta la variabile d'ambiente `M3U_URL` con l'URL della playlist M3U.
-2. Avvia l'add-on con `npm start`.
+2. (Opzionale) Imposta la variabile d'ambiente `ENABLE_EPG` su `yes` per abilitare l'EPG o su `no` per disabilitarlo.
+3. Avvia l'add-on con `npm start`.
 
 ## Deploy su Render.com
 1. Collega il repository GitHub a Render.com.
-2. Configura la variabile d'ambiente `M3U_URL`.
+2. Configura le variabili d'ambiente `M3U_URL` e `ENABLE_EPG`.
 3. Avvia il deploy.
 
 ## Aggiungi l'add-on a Stremio
@@ -40,8 +41,8 @@ Puoi aggiungere l'add-on a Stremio in due modi:
 - `stremio-addon-sdk`: SDK per creare add-on per Stremio.
 - `axios`: Per effettuare richieste HTTP.
 - `m3u8-parser`: Per analizzare la playlist M3U.
-- `xml2js`: Per analizzare l'EPG in formato XML.
-- `node-cron`: Per aggiornare la cache automaticamente.
+- `xml2js`: Per analizzare l'EPG in formato XML (opzionale).
+- `node-cron`: Per aggiornare la cache automaticamente (solo se l'EPG è abilitato).
 - `express`: Per creare il server web.
 - `path`: Per gestire i percorsi dei file.
 
