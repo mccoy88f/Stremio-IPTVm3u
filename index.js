@@ -1,5 +1,3 @@
-const express = require('express');
-const path = require('path');
 const addonSDK = require('stremio-addon-sdk');
 const { addonBuilder } = addonSDK;
 const axios = require('axios');
@@ -8,7 +6,7 @@ const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
 
-// Porta unica per Express e l'addon Stremio
+// Porta unica per l'addon Stremio
 const port = process.env.PORT || 10000;
 
 // Configura il manifest dell'add-on
@@ -50,6 +48,10 @@ const EPG_URL = 'https://www.epgitalia.tv/gzip';
 
 // Controlla se l'EPG è abilitato
 const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
+
+// Leggi i parametri del proxy dalle variabili d'ambiente
+const PROXY_URL = process.env.PROXY_URL || null;
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || null;
 
 // Funzione per aggiornare la cache
 async function updateCache() {
@@ -132,7 +134,7 @@ builder.defineCatalogHandler(async (args) => {
       .map(item => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
-        
+
         // Estrai le informazioni aggiuntive dalla playlist M3U
         const tvgLogo = item.tvg?.logo || null;
         const groupTitle = item.group?.title || null;
@@ -176,10 +178,6 @@ builder.defineStreamHandler(async (args) => {
   try {
     console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
 
-    // Recupera i parametri del proxy dalla query string
-    const proxyUrl = args.extra?.proxyUrl;
-    const proxyPassword = args.extra?.proxyPassword;
-
     if (!cachedData.m3u || !cachedData.epg) {
       await updateCache();
     }
@@ -207,12 +205,12 @@ builder.defineStreamHandler(async (args) => {
     const streams = [directStream];
 
     // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
-    if (proxyUrl) {
+    if (PROXY_URL) {
       const proxyParams = new URLSearchParams();
-      if (proxyPassword) proxyParams.append('password', proxyPassword);
+      if (PROXY_PASSWORD) proxyParams.append('password', PROXY_PASSWORD);
       proxyParams.append('url', channel.url);
 
-      const proxyStreamUrl = `${proxyUrl}?${proxyParams.toString()}`;
+      const proxyStreamUrl = `${PROXY_URL}?${proxyParams.toString()}`;
 
       const proxyStream = {
         title: `${channel.name} (Media Proxy)`,
@@ -264,20 +262,8 @@ function getChannelInfo(epgData, channelName) {
   };
 }
 
-// Configura Express per servire il file index.html
-const app = express();
-
-// Servi il file index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Servi il file manifest.json
-app.get('/manifest.json', (req, res) => {
-  res.json(builder.getInterface().manifest);
-});
-
-// Avvia il server Express
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server in ascolto sulla porta ${port}`);
+// Avvia l'addon
+const addonInterface = builder.getInterface();
+addonInterface.listen(port, '0.0.0.0', () => {
+  console.log(`Addon in ascolto sulla porta ${port}`);
 });
