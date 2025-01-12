@@ -1,3 +1,5 @@
+const express = require('express');
+const path = require('path');
 const addonSDK = require('stremio-addon-sdk');
 const { addonBuilder, serveHTTP } = addonSDK;
 const axios = require('axios');
@@ -11,7 +13,7 @@ const port = process.env.PORT || 10000;
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
   id: 'org.mccoy88f.iptvaddon',
-  version: '1.0.0',
+  version: '1.5.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
   logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
@@ -196,7 +198,7 @@ builder.defineStreamHandler(async (args) => {
       title: `${channel.name} (Diretto)`,  // Aggiungiamo un suffisso per distinguerlo
       url: channel.url,
       behaviorHints: {
-        notWebReady: false,
+        notWebReady: true,
         bingeGroup: "tv"
       }
     };
@@ -261,8 +263,18 @@ function getChannelInfo(epgData, channelName) {
   };
 }
 
-// Avvia il server HTTP
-serveHTTP(builder.getInterface(), { port: port });
+// Configura Express per servire il file index.html
+const app = express();
 
-// Se vuoi pubblicare l'addon su Stremio Central, usa questa riga:
-// publishToCentral("https://<your-domain>/manifest.json");
+// Servi il file index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Avvia il server Express
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server in ascolto sulla porta ${port}`);
+});
+
+// Avvia il server HTTP per l'addon Stremio
+serveHTTP(builder.getInterface(), { port: port });
