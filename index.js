@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { addonBuilder } = require('stremio-addon-sdk');
 const axios = require('axios');
-const { Parser } = require('m3u8-parser');
+const { Parser } = require('iptv-playlist-parser'); // Usiamo iptv-playlist-parser
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
@@ -59,11 +59,13 @@ async function updateCache() {
 
     // Scarica la playlist M3U
     const m3uResponse = await axios.get(M3U_URL);
-    const parser = new Parser();
-    parser.push(m3uResponse.data);
-    parser.end();
+    console.log('Risposta M3U:', m3uResponse.data); // Debug
 
-    console.log('Playlist M3U caricata correttamente. Numero di canali:', parser.manifest.items.length);
+    // Usiamo iptv-playlist-parser per analizzare la playlist
+    const parser = new Parser();
+    const playlist = parser.parse(m3uResponse.data);
+
+    console.log('Playlist M3U caricata correttamente. Numero di canali:', playlist.items.length);
 
     let epgData = null;
     if (enableEPG) {
@@ -95,7 +97,7 @@ async function updateCache() {
 
     // Aggiorna la cache
     cachedData = {
-      m3u: parser.manifest.items,
+      m3u: playlist.items, // Usiamo playlist.items invece di parser.manifest.items
       epg: epgData,
       lastUpdated: Date.now()
     };
