@@ -1,13 +1,11 @@
 const addonSDK = require('stremio-addon-sdk');
-const { addonBuilder } = addonSDK;
+const { addonBuilder, serveHTTP } = addonSDK; // Importa serveHTTP
 const axios = require('axios');
 const parser = require('iptv-playlist-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
-const http = require('http'); // Aggiungi questa linea
 
-// Porta unica per l'addon Stremio
 const port = process.env.PORT || 10000;
 
 // Configura il manifest dell'add-on
@@ -49,10 +47,6 @@ const EPG_URL = 'https://www.epgitalia.tv/gzip';
 
 // Controlla se l'EPG è abilitato
 const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
-
-// Leggi i parametri del proxy dalle variabili d'ambiente
-const PROXY_URL = process.env.PROXY_URL || null;
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || null;
 
 // Funzione per aggiornare la cache
 async function updateCache() {
@@ -135,7 +129,7 @@ builder.defineCatalogHandler(async (args) => {
       .map(item => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
-
+        
         // Estrai le informazioni aggiuntive dalla playlist M3U
         const tvgLogo = item.tvg?.logo || null;
         const groupTitle = item.group?.title || null;
@@ -178,24 +172,27 @@ builder.defineCatalogHandler(async (args) => {
 builder.defineStreamHandler(async (args) => {
   try {
     console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
-
+    
     if (!cachedData.m3u || !cachedData.epg) {
       await updateCache();
     }
 
+    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
     const channelName = args.id.replace(/^tv/, '');
     console.log('Cerco canale con nome:', channelName);
 
+    // Trova il canale specifico richiesto
     const channel = cachedData.m3u.find(item => item.name === channelName);
-
+    
     if (!channel) {
       console.log('Canale non trovato. Nome cercato:', channelName);
       return Promise.resolve({ streams: [] });
     }
 
-    // Stream diretto (senza media proxy)
-    const directStream = {
-      title: `${channel.name} (Diretto)`,
+    console.log('Canale trovato:', channel);
+
+    const stream = {
+      title: channel.name,
       url: channel.url,
       behaviorHints: {
         notWebReady: true,
@@ -203,30 +200,8 @@ builder.defineStreamHandler(async (args) => {
       }
     };
 
-    const streams = [directStream];
-
-    // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
-    if (PROXY_URL) {
-      const proxyParams = new URLSearchParams();
-      if (PROXY_PASSWORD) proxyParams.append('password', PROXY_PASSWORD);
-      proxyParams.append('url', channel.url);
-
-      const proxyStreamUrl = `${PROXY_URL}?${proxyParams.toString()}`;
-
-      const proxyStream = {
-        title: `${channel.name} (Media Proxy)`,
-        url: proxyStreamUrl,
-        behaviorHints: {
-          notWebReady: false,
-          bingeGroup: "tv"
-        }
-      };
-
-      streams.push(proxyStream);  // Aggiungi lo stream con il media proxy alla lista
-    }
-
-    console.log('Stream generati:', JSON.stringify(streams, null, 2));
-    return Promise.resolve({ streams });
+    console.log('Stream generato:', JSON.stringify(stream, null, 2));
+    return Promise.resolve({ streams: [stream] });
 
   } catch (error) {
     console.error('Errore nel caricamento dello stream:', error);
@@ -263,10 +238,8 @@ function getChannelInfo(epgData, channelName) {
   };
 }
 
-// Avvia l'addon
-const addonInterface = builder.getInterface();
-const server = http.createServer(addonInterface);
+// Avvia il server HTTP
+serveHTTP(builder.getInterface(), { port: port });
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`Addon in ascolto sulla porta ${port}`);
-});
+// Se vuoi pubblicare l'addon su Stremio Central, usa questa riga:
+// publishToCentral("https://<your-domain>/manifest.json");
