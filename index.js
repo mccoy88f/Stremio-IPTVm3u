@@ -52,14 +52,20 @@ builder.defineCatalogHandler(async (args) => {
       .map(item => {
         const channelName = item.name;
         const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
+        
+        // Estrai le informazioni aggiuntive dalla playlist M3U
+        const tvgLogo = item.tvg?.logo || null;
+        const groupTitle = item.group?.title || null;
 
         const meta = {
           id: 'tv' + channelName,
           type: 'tv',
           name: channelName,
-          poster: icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          background: tvgLogo || icon,
+          logo: tvgLogo || icon,
           description: description || channelName,
-          genres: genres || ['TV'],
+          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
           posterShape: 'square'
         };
 
@@ -130,6 +136,17 @@ async function updateCache() {
     // Scarica la playlist M3U
     const m3uResponse = await axios.get(M3U_URL);
     const playlist = parser.parse(m3uResponse.data);
+
+    // Debug: mostra le informazioni dei primi 3 canali
+    console.log('Esempio dei primi 3 canali:');
+    playlist.items.slice(0, 3).forEach(item => {
+      console.log({
+        name: item.name,
+        tvg: item.tvg,
+        group: item.group,
+        url: item.url
+      });
+    });
 
     console.log('Playlist M3U caricata correttamente. Numero di canali:', playlist.items.length);
 
