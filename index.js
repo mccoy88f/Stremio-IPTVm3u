@@ -195,6 +195,9 @@ builder.defineStreamHandler(async (args) => {
 
     console.log('Canale trovato:', channel);
 
+    // Estrai l'User-Agent dalla playlist M3U (se presente)
+    const userAgent = channel.headers?.['User-Agent'] || 'HbbTV/1.6.1'; // Fallback predefinito
+
     // Stream diretto (senza media proxy)
     const directStream = {
       title: `${channel.name} (Diretto)`,
@@ -209,11 +212,14 @@ builder.defineStreamHandler(async (args) => {
 
     // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
     if (PROXY_URL) {
-      const proxyParams = new URLSearchParams();
-      if (PROXY_PASSWORD) proxyParams.append('password', PROXY_PASSWORD);
-      proxyParams.append('url', channel.url);
+      // Codifica l'URL del canale
+      const encodedUrl = encodeURIComponent(channel.url);
 
-      const proxyStreamUrl = `${PROXY_URL}?${proxyParams.toString()}`;
+      // Costruisci l'URL del proxy con i parametri richiesti
+      const proxyStreamUrl = `${PROXY_URL}/proxy/hls/manifest.m3u8?
+        api_password=${PROXY_PASSWORD}&
+        d=${encodedUrl}&
+        h_User-Agent=${encodeURIComponent(userAgent)}`;
 
       const proxyStream = {
         title: `${channel.name} (Media Proxy)`,
@@ -224,7 +230,7 @@ builder.defineStreamHandler(async (args) => {
         }
       };
 
-      streams.push(proxyStream);  // Aggiungi lo stream con il media proxy alla lista
+      streams.push(proxyStream);
     }
 
     console.log('Stream generati:', JSON.stringify(streams, null, 2));
