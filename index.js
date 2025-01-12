@@ -198,7 +198,6 @@ builder.defineStreamHandler(async (args) => {
     // Estrai l'User-Agent dalla playlist M3U (se presente)
     const userAgent = channel.headers?.['User-Agent'] || 'HbbTV/1.6.1'; // Fallback predefinito
 
-    // Stream diretto (senza media proxy)
     const directStream = {
       title: `${channel.name} (Diretto)`,
       url: channel.url,
@@ -210,27 +209,47 @@ builder.defineStreamHandler(async (args) => {
 
     const streams = [directStream];
 
-    // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
     if (PROXY_URL) {
-      // Codifica l'URL del canale
-      const encodedUrl = encodeURIComponent(channel.url);
-
       // Costruisci l'URL del proxy con i parametri richiesti
       const proxyStreamUrl = `${PROXY_URL}/proxy/hls/manifest.m3u8?
         api_password=${PROXY_PASSWORD}&
-        d=${encodedUrl}&
+        d=${channel.url}&
         h_User-Agent=${encodeURIComponent(userAgent)}`;
 
-      const proxyStream = {
-        title: `${channel.name} (Media Proxy)`,
-        url: proxyStreamUrl,
-        behaviorHints: {
-          notWebReady: false,
-          bingeGroup: "tv"
+      // Prova a verificare se il flusso è accessibile
+      try {
+        const response = await axios.head(proxyStreamUrl);
+        if (response.status === 200) {
+          // Se la richiesta ha successo, aggiungi lo stream con il proxy
+          const proxyStream = {
+            title: `${channel.name} (Media Proxy)`,
+            url: proxyStreamUrl,
+            behaviorHints: {
+              notWebReady: false,
+              bingeGroup: "tv"
+            }
+          };
+          streams.push(proxyStream);
         }
-      };
-
-      streams.push(proxyStream);
+      } catch (error) {
+        if (error.response && error.response.status === 403) {
+          // Se l'errore è 403, aggiungi un messaggio di errore
+          console.error('Errore 403: Accesso negato a causa di restrizioni geografiche o token non valido.');
+          const errorStream = {
+            title: `${channel.name} (Errore: Accesso Negato)`,
+            url: '', // Nessun URL, poiché il flusso non è accessibile
+            behaviorHints: {
+              notWebReady: true,
+              bingeGroup: "tv",
+              errorMessage: "Accesso negato. Potrebbe essere necessario utilizzare una VPN o verificare la tua posizione."
+            }
+          };
+          streams.push(errorStream);
+        } else {
+          // Se l'errore è diverso da 403, loggalo e continua
+          console.error('Errore nel caricamento dello stream:', error);
+        }
+      }
     }
 
     console.log('Stream generati:', JSON.stringify(streams, null, 2));
