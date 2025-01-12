@@ -8,7 +8,9 @@ const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
 
-const port = process.env.PORT || 10000;
+// Porte separate per Express e l'addon Stremio
+const expressPort = process.env.PORT || 10000; // Porta per Express (index.html)
+const stremioPort = 10001; // Porta per l'addon Stremio
 
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
@@ -272,9 +274,9 @@ app.get('/', (req, res) => {
 });
 
 // Avvia il server Express
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server in ascolto sulla porta ${port}`);
+app.listen(expressPort, '0.0.0.0', () => {
+  console.log(`Server Express in ascolto sulla porta ${expressPort}`);
 });
 
 // Avvia il server HTTP per l'addon Stremio
-serveHTTP(builder.getInterface(), { port: port });
+serveHTTP(builder.getInterface(), { port: stremioPort });
