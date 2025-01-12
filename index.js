@@ -4,7 +4,13 @@ const { Parser } = require('m3u8-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
+const express = require('express'); // Aggiungi Express
+const path = require('path'); // Per gestire i file statici
 
+const app = express(); // Crea un'app Express
+const port = process.env.PORT || 7000; // Usa la porta specificata da Render.com o 7000 di default
+
+// Configura il manifest dell'add-on
 const builder = new addonBuilder({
     id: 'org.example.iptvaddon',
     version: '1.0.0',
@@ -22,28 +28,48 @@ let cachedData = {
     lastUpdated: null
 };
 
+// Leggi l'URL della playlist M3U dalla variabile d'ambiente
 const M3U_URL = process.env.M3U_URL || 'https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u';
 
+// URL dell'EPG funzionante
+const EPG_URL = 'https://www.epgitalia.tv/gzip';
+
+// Funzione per aggiornare la cache
 async function updateCache() {
     try {
         console.log('Aggiornamento della cache in corso...');
 
+        // Scarica la playlist M3U
         const m3uResponse = await axios.get(M3U_URL);
         const parser = new Parser();
         parser.push(m3uResponse.data);
         parser.end();
 
-        const epgResponse = await axios.get('https://iptv-org.github.io/epg/guides/it.xml.gz', {
-            responseType: 'arraybuffer'
-        });
-        const decompressed = await new Promise((resolve, reject) => {
-            zlib.gunzip(epgResponse.data, (err, result) => {
-                if (err) reject(err);
-                else resolve(result.toString());
+        // Prova a scaricare l'EPG
+        let epgData = null;
+        try {
+            const epgResponse = await axios.get(EPG_URL, {
+                responseType: 'arraybuffer'
             });
-        });
-        const epgData = await parseStringPromise(decompressed);
+            const decompressed = await new Promise((resolve, reject) => {
+                zlib.gunzip(epgResponse.data, (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result.toString());
+                });
+            });
+            epgData = await parseStringPromise(decompressed);
+        } catch (epgError) {
+            console.error('Errore nel caricamento dell\'EPG:', epgError);
+            // Utilizza una cache precedente se disponibile
+            if (cachedData.epg) {
+                epgData = cachedData.epg;
+                console.log('Utilizzo della cache EPG precedente.');
+            } else {
+                throw new Error('Impossibile caricare l\'EPG e nessuna cache disponibile.');
+            }
+        }
 
+        // Aggiorna la cache
         cachedData = {
             m3u: parser.manifest.items,
             epg: epgData,
@@ -56,6 +82,7 @@ async function updateCache() {
     }
 }
 
+// Funzione per ottenere l'icona e i metadati del canale dall'EPG
 function getChannelInfo(epgData, channelName) {
     if (!epgData || !epgData.tv || !epgData.tv.channel) return {};
 
@@ -75,12 +102,15 @@ function getChannelInfo(epgData, channelName) {
     };
 }
 
+// Aggiorna la cache ogni giorno alle 3 di mattina
 cron.schedule('0 3 * * *', () => {
     updateCache();
 });
 
+// Aggiorna la cache all'avvio dell'add-on
 updateCache();
 
+// Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
     try {
         const { search } = args.extra || {};
@@ -113,6 +143,7 @@ builder.defineCatalogHandler(async (args) => {
     }
 });
 
+// Handler per gli stream
 builder.defineStreamHandler(async (args) => {
     try {
         if (!cachedData.m3u || !cachedData.epg) {
@@ -144,4 +175,15 @@ builder.defineStreamHandler(async (args) => {
     }
 });
 
+// Aggiungi una route per la pagina HTML
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html')); // Invia il file HTML
+});
+
+// Avvia il server
+app.listen(port, () => {
+    console.log(`Server in ascolto sulla porta ${port}`);
+});
+
+// Esporta l'interfaccia dell'add-on
 module.exports = builder.getInterface();
