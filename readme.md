@@ -15,7 +15,7 @@ L'addon utilizza le seguenti variabili d'ambiente:
 ### M3U_URL
 - Variabile opzionale
 - URL della playlist M3U
-- Se non specificata, viene utilizzata la playlist predefinita: `https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u`
+- Se non specificata, viene utilizzata la playlist predefinita di TUNDRAK dalla pagina https://github.com/Tundrak/IPTV-Italia: `https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u`
 
 ### ENABLE_EPG
 - Variabile opzionale
