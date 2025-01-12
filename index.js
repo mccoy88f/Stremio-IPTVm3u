@@ -48,6 +48,11 @@ const EPG_URL = 'https://www.epgitalia.tv/gzip';
 // Controlla se l'EPG è abilitato
 const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
 
+// Funzione per normalizzare l'ID del canale
+function normalizeId(channelName) {
+  return 'tv' + channelName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
 // Funzione per aggiornare la cache
 async function updateCache() {
   try {
@@ -155,8 +160,9 @@ builder.defineCatalogHandler(async (args) => {
           enableEPG ? null : '\nNota: EPG non abilitato'
         ].filter(Boolean).join('\n');
 
+        // Normalizza l'ID del canale
         const meta = {
-          id: 'tv' + channelName,
+          id: normalizeId(channelName), // Usa la funzione normalizeId
           type: 'tv',
           name: channelName,
           poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
@@ -206,7 +212,6 @@ builder.defineStreamHandler(async (args) => {
       title: channel.name,
       url: channel.url,
       behaviorHints: {
-        notWebReady: false,
         bingeGroup: "tv"
       }
     };
