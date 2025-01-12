@@ -11,18 +11,17 @@ const port = process.env.PORT || 10000;
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
   id: 'org.mccoy88f.iptvaddon',
-  version: '1.0.0',
+  version: '1.0.1',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-  logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
   resources: ['stream', 'catalog'],
-  types: ['tv'],
-  idPrefixes: ['tv'],
+  types: ['channel'],
+  idPrefixes: ['channel_'],
   catalogs: [
     {
-      type: 'tv',
-      id: 'iptvitalia',
-      name: 'Canali TV Italia',
+      type: 'channel',
+      id: 'italia',
+      name: 'Canali Italia',
       extra: [
         {
           name: 'search',
@@ -57,17 +56,6 @@ async function updateCache() {
     const m3uResponse = await axios.get(M3U_URL);
     const playlist = parser.parse(m3uResponse.data);
 
-    // Debug: mostra le informazioni dei primi 3 canali
-    console.log('Esempio dei primi 3 canali:');
-    playlist.items.slice(0, 3).forEach(item => {
-      console.log({
-        name: item.name,
-        tvg: item.tvg,
-        group: item.group,
-        url: item.url
-      });
-    });
-
     console.log('Playlist M3U caricata correttamente. Numero di canali:', playlist.items.length);
 
     let epgData = null;
@@ -91,7 +79,7 @@ async function updateCache() {
           epgData = cachedData.epg;
           console.log('Utilizzo della cache EPG precedente.');
         } else {
-          throw new Error('Impossibile caricare l\'EPG e nessuna cache disponibile.');
+          console.warn('Impossibile caricare l\'EPG e nessuna cache disponibile.');
         }
       }
     } else {
@@ -108,6 +96,55 @@ async function updateCache() {
     console.log('Cache aggiornata con successo!');
   } catch (error) {
     console.error('Errore nell\'aggiornamento della cache:', error);
+    throw error;
+  }
+}
+
+// Funzione per ottenere le informazioni del canale dall'EPG
+function getChannelInfo(epgData, channelName) {
+  if (!epgData || !channelName) {
+    return {
+      icon: null,
+      description: null,
+      genres: ['TV'],
+      programs: [],
+    };
+  }
+
+  try {
+    // Ricerca più flessibile del canale
+    const channelInfo = epgData.tv?.channel?.find(channel => 
+      channel.$.id.toLowerCase().includes(channelName.toLowerCase()) || 
+      channelName.toLowerCase().includes(channel.$.id.toLowerCase())
+    );
+
+    if (!channelInfo) {
+      return {
+        icon: null,
+        description: 'Canale TV Italiano',
+        genres: ['TV'],
+        programs: [],
+      };
+    }
+
+    // Estrai icona e descrizione
+    const icon = channelInfo['icon']?.[0]?.$.src || null;
+    const displayName = channelInfo['display-name']?.[0]?._ || channelName;
+
+    return {
+      icon: icon,
+      description: displayName,
+      genres: ['TV'],
+      programs: [],
+    };
+  } catch (error) {
+    console.error(`Errore nell'elaborazione delle informazioni per ${channelName}:`, error);
+    return {
+      icon: null,
+      description: 'Canale TV Italiano',
+      genres: ['TV'],
+      programs: [],
+    };
   }
 }
 
@@ -128,50 +165,30 @@ if (enableEPG) {
 // Handler per la ricerca dei canali
 builder.defineCatalogHandler(async (args) => {
   try {
-    console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
     const { search } = args.extra || {};
 
-    if (!cachedData.m3u || !cachedData.epg) {
+    if (!cachedData.m3u) {
       await updateCache();
     }
 
     const filteredChannels = cachedData.m3u
       .filter(item => !search || item.name.toLowerCase().includes(search.toLowerCase()))
       .map(item => {
-        const channelName = item.name;
-        const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
-        
-        // Estrai le informazioni aggiuntive dalla playlist M3U
-        const tvgLogo = item.tvg?.logo || null;
-        const groupTitle = item.group?.title || null;
-        const tvgId = item.tvg?.id || null;
+        const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, item.name);
 
-        // Crea una descrizione base se l'EPG non è disponibile
-        const baseDescription = [
-          `Nome canale: ${channelName}`,
-          tvgId ? `ID canale: ${tvgId}` : null,
-          groupTitle ? `Gruppo: ${groupTitle}` : null,
-          `\nQuesta playlist è fornita da: ${M3U_URL}`,
-          enableEPG ? null : '\nNota: EPG non abilitato'
-        ].filter(Boolean).join('\n');
-
-        const meta = {
-          id: 'tv' + channelName,
-          type: 'tv',
-          name: channelName,
-          poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
-          background: tvgLogo || icon,
-          logo: tvgLogo || icon,
-          description: description || baseDescription,
-          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
-          posterShape: 'square'
+        return {
+          id: `channel_${item.name}`, // Aggiungi un prefisso per rendere l'ID unico
+          type: 'channel',
+          name: item.name,
+          poster: icon,
+          background: icon,
+          logo: icon,
+          description: description || 'Canale TV Italiano',
+          genres: genres || ['TV'],
+          releaseInfo: '', 
         };
-
-        console.log('Creato meta per canale:', JSON.stringify(meta, null, 2));
-        return meta;
       });
 
-    console.log(`Trovati ${filteredChannels.length} canali`);
     return Promise.resolve({ metas: filteredChannels });
   } catch (error) {
     console.error('Errore nella ricerca dei canali:', error);
@@ -182,75 +199,54 @@ builder.defineCatalogHandler(async (args) => {
 // Handler per gli stream
 builder.defineStreamHandler(async (args) => {
   try {
-    console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
-    
-    if (!cachedData.m3u || !cachedData.epg) {
+    if (!cachedData.m3u) {
       await updateCache();
     }
 
-    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
-    const channelName = args.id.replace(/^tv/, '');
-    console.log('Cerco canale con nome:', channelName);
+    // Rimuovi il prefisso 'channel_' dall'ID
+    const channelName = args.id.replace(/^channel_/, '');
 
     // Trova il canale specifico richiesto
-    const channel = cachedData.m3u.find(item => item.name === channelName);
-    
-    if (!channel) {
-      console.log('Canale non trovato. Nome cercato:', channelName);
+    const requestedChannel = cachedData.m3u.find(item => 
+      item.name.toLowerCase() === channelName.toLowerCase()
+    );
+
+    if (!requestedChannel) {
       return Promise.resolve({ streams: [] });
     }
 
-    console.log('Canale trovato:', channel);
+    // Ottieni le informazioni del canale dall'EPG
+    const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, requestedChannel.name);
 
+    // Crea lo stream con informazioni più complete
     const stream = {
-      title: channel.name,
-      url: channel.url,
+      name: requestedChannel.name,
+      title: requestedChannel.name,
+      url: requestedChannel.url,
+      
+      // Metadati aggiuntivi
+      thumbnail: icon,
+      logo: icon,
+      description: description || '',
+      genres: genres || [],
+      
+      // Aggiungi hint per la riproduzione
       behaviorHints: {
-        notWebReady: true,
-        bingeGroup: "tv"
+        // Opzionale: aggiungi hint specifici se necessario
       }
     };
 
-    console.log('Stream generato:', JSON.stringify(stream, null, 2));
     return Promise.resolve({ streams: [stream] });
-
   } catch (error) {
     console.error('Errore nel caricamento dello stream:', error);
     return Promise.resolve({ streams: [] });
   }
 });
 
-// Funzione per ottenere le informazioni del canale dall'EPG
-function getChannelInfo(epgData, channelName) {
-  if (!epgData) {
-    return {
-      icon: null,
-      description: null,
-      genres: [],
-      programs: [],
-    };
-  }
-
-  const channelInfo = epgData.find(channel => channel.name === channelName);
-  if (!channelInfo) {
-    return {
-      icon: null,
-      description: null,
-      genres: [],
-      programs: [],
-    };
-  }
-
-  return {
-    icon: channelInfo.icon,
-    description: channelInfo.description,
-    genres: channelInfo.genres || [],
-    programs: channelInfo.programs || [],
-  };
-}
-
 // Avvia il server HTTP
 serveHTTP(builder.getInterface(), { port: port });
 
 // Se vuoi pubblicare l'addon su Stremio Central, usa questa riga:
 // publishToCentral("https://<your-domain>/manifest.json");
+
+console.log(`Addon avviato sulla porta ${port}`);
