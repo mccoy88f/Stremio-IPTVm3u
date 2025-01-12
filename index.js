@@ -14,6 +14,7 @@ const builder = new addonBuilder({
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
+  logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
   resources: ['stream', 'catalog'],
   types: ['tv'],
   idPrefixes: ['tv'],
