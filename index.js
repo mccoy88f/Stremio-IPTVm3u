@@ -48,11 +48,6 @@ const EPG_URL = 'https://www.epgitalia.tv/gzip';
 // Controlla se l'EPG è abilitato
 const enableEPG = process.env.ENABLE_EPG === 'yes'; // EPG è disabilitato di default
 
-// Funzione per normalizzare l'ID del canale
-function normalizeId(channelName) {
-  return 'tv' + channelName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-}
-
 // Funzione per aggiornare la cache
 async function updateCache() {
   try {
@@ -61,17 +56,6 @@ async function updateCache() {
     // Scarica la playlist M3U
     const m3uResponse = await axios.get(M3U_URL);
     const playlist = parser.parse(m3uResponse.data);
-
-    // Debug: mostra le informazioni dei primi 3 canali
-    console.log('Esempio dei primi 3 canali:');
-    playlist.items.slice(0, 3).forEach(item => {
-      console.log({
-        name: item.name,
-        tvg: item.tvg,
-        group: item.group,
-        url: item.url
-      });
-    });
 
     console.log('Playlist M3U caricata correttamente. Numero di canali:', playlist.items.length);
 
@@ -160,9 +144,8 @@ builder.defineCatalogHandler(async (args) => {
           enableEPG ? null : '\nNota: EPG non abilitato'
         ].filter(Boolean).join('\n');
 
-        // Normalizza l'ID del canale
         const meta = {
-          id: normalizeId(channelName), // Usa la funzione normalizeId
+          id: 'tv' + channelName,
           type: 'tv',
           name: channelName,
           poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
@@ -189,36 +172,59 @@ builder.defineCatalogHandler(async (args) => {
 builder.defineStreamHandler(async (args) => {
   try {
     console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
-    
+
+    // Recupera i parametri del proxy dalla query string
+    const proxyUrl = args.extra?.proxyUrl;
+    const proxyPassword = args.extra?.proxyPassword;
+
     if (!cachedData.m3u || !cachedData.epg) {
       await updateCache();
     }
 
-    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
     const channelName = args.id.replace(/^tv/, '');
     console.log('Cerco canale con nome:', channelName);
 
-    // Trova il canale specifico richiesto
     const channel = cachedData.m3u.find(item => item.name === channelName);
-    
+
     if (!channel) {
       console.log('Canale non trovato. Nome cercato:', channelName);
       return Promise.resolve({ streams: [] });
     }
 
-    console.log('Canale trovato:', channel);
-
-    const stream = {
-      title: channel.name,
+    // Stream diretto (senza media proxy)
+    const directStream = {
+      title: `${channel.name} (Diretto)`,  // Aggiungiamo un suffisso per distinguerlo
       url: channel.url,
       behaviorHints: {
-        notwebReady: "true",
+        notWebReady: true,
         bingeGroup: "tv"
       }
     };
 
-    console.log('Stream generato:', JSON.stringify(stream, null, 2));
-    return Promise.resolve({ streams: [stream] });
+    const streams = [directStream];
+
+    // Se è stato configurato un media proxy, aggiungi uno stream che passa attraverso il proxy
+    if (proxyUrl) {
+      const proxyParams = new URLSearchParams();
+      if (proxyPassword) proxyParams.append('password', proxyPassword);
+      proxyParams.append('url', channel.url);
+
+      const proxyStreamUrl = `${proxyUrl}?${proxyParams.toString()}`;
+
+      const proxyStream = {
+        title: `${channel.name} (Media Proxy)`,  // Aggiungiamo un suffisso per distinguerlo
+        url: proxyStreamUrl,
+        behaviorHints: {
+          notWebReady: false,
+          bingeGroup: "tv"
+        }
+      };
+
+      streams.push(proxyStream);  // Aggiungi lo stream con il media proxy alla lista
+    }
+
+    console.log('Stream generati:', JSON.stringify(streams, null, 2));
+    return Promise.resolve({ streams });
 
   } catch (error) {
     console.error('Errore nel caricamento dello stream:', error);
