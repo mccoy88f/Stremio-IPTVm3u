@@ -63,6 +63,8 @@ async function updateCache() {
     parser.push(m3uResponse.data);
     parser.end();
 
+    console.log('Playlist M3U caricata correttamente. Numero di canali:', parser.manifest.items.length);
+
     let epgData = null;
     if (enableEPG) {
       console.log('EPG abilitato. Scaricamento in corso...');
@@ -77,6 +79,7 @@ async function updateCache() {
           });
         });
         epgData = await parseStringPromise(decompressed);
+        console.log('EPG caricato correttamente.');
       } catch (epgError) {
         console.error('Errore nel caricamento dell\'EPG:', epgError);
         if (cachedData.epg) {
@@ -104,7 +107,11 @@ async function updateCache() {
 }
 
 // Aggiorna la cache all'avvio
-updateCache();
+updateCache().then(() => {
+  console.log('Cache aggiornata con successo all\'avvio.');
+}).catch((err) => {
+  console.error('Errore durante l\'aggiornamento della cache all\'avvio:', err);
+});
 
 // Aggiorna la cache ogni giorno alle 3:00 del mattino (solo se l'EPG è abilitato)
 if (enableEPG) {
@@ -154,6 +161,7 @@ builder.defineStreamHandler(async (args) => {
     }
 
     const streams = cachedData.m3u.map(item => {
+      console.log('Stream URL:', item.url); // Log dei link agli stream
       const channelName = item.name;
       const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
 
@@ -216,3 +224,32 @@ app.listen(port, '0.0.0.0', () => {
 
 // Esporta l'interfaccia dell'add-on
 module.exports = builder.getInterface();
+
+// Funzione per ottenere le informazioni del canale dall'EPG
+function getChannelInfo(epgData, channelName) {
+  if (!epgData) {
+    return {
+      icon: null,
+      description: null,
+      genres: [],
+      programs: []
+    };
+  }
+
+  const channelInfo = epgData.find(channel => channel.name === channelName);
+  if (!channelInfo) {
+    return {
+      icon: null,
+      description: null,
+      genres: [],
+      programs: []
+    };
+  }
+
+  return {
+    icon: channelInfo.icon,
+    description: channelInfo.description,
+    genres: channelInfo.genres || [],
+    programs: channelInfo.programs || []
+  };
+}
