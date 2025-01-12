@@ -196,7 +196,7 @@ builder.defineStreamHandler(async (args) => {
       title: `${channel.name} (Diretto)`,  // Aggiungiamo un suffisso per distinguerlo
       url: channel.url,
       behaviorHints: {
-        notWebReady: true,
+        notWebReady: false,
         bingeGroup: "tv"
       }
     };
