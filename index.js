@@ -14,6 +14,7 @@ const builder = new addonBuilder({
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
+  logo: '📺',
   resources: ['stream', 'catalog'],
   types: ['tv'],
   idPrefixes: ['tv'],
@@ -142,7 +143,7 @@ builder.defineCatalogHandler(async (args) => {
         
         // Estrai le informazioni aggiuntive dalla playlist M3U
         const tvgLogo = item.tvg?.logo || null;
-        const groupTitle = item.group?.title || null;
+        const groupTitle = item.group?.title || 'Altri';
         const tvgId = item.tvg?.id || null;
 
         // Crea una descrizione base se l'EPG non è disponibile
@@ -154,15 +155,18 @@ builder.defineCatalogHandler(async (args) => {
           enableEPG ? null : '\nNota: EPG non abilitato'
         ].filter(Boolean).join('\n');
 
+        // Usa il logo del canale sia per poster che per background
+        const channelLogo = tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png';
+
         const meta = {
           id: 'tv' + channelName,
           type: 'tv',
           name: channelName,
-          poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
-          background: tvgLogo || icon,
-          logo: tvgLogo || icon,
+          poster: channelLogo,
+          background: channelLogo,
+          logo: channelLogo,
           description: description || baseDescription,
-          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
+          genres: [groupTitle],
           posterShape: 'square'
         };
 
