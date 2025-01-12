@@ -5,6 +5,8 @@ const parser = require('iptv-playlist-parser');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 const cron = require('node-cron');
+const path = require('path');
+const express = require('express');
 
 const port = process.env.PORT || 10000;
 
@@ -14,7 +16,6 @@ const builder = new addonBuilder({
   version: '1.0.0',
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
-  logo: '📺',
   resources: ['stream', 'catalog'],
   types: ['tv'],
   idPrefixes: ['tv'],
@@ -135,6 +136,8 @@ builder.defineCatalogHandler(async (args) => {
       await updateCache();
     }
 
+    const defaultLogoUrl = `${process.env.BASE_URL || 'http://localhost:' + port}/tv.png`;
+
     const filteredChannels = cachedData.m3u
       .filter(item => !search || item.name.toLowerCase().includes(search.toLowerCase()))
       .map(item => {
@@ -143,7 +146,7 @@ builder.defineCatalogHandler(async (args) => {
         
         // Estrai le informazioni aggiuntive dalla playlist M3U
         const tvgLogo = item.tvg?.logo || null;
-        const groupTitle = item.group?.title || 'Altri';
+        const groupTitle = item.group?.title || null;
         const tvgId = item.tvg?.id || null;
 
         // Crea una descrizione base se l'EPG non è disponibile
@@ -155,26 +158,22 @@ builder.defineCatalogHandler(async (args) => {
           enableEPG ? null : '\nNota: EPG non abilitato'
         ].filter(Boolean).join('\n');
 
-        // Usa il logo del canale sia per poster che per background
-        const channelLogo = tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png';
-
         const meta = {
           id: 'tv' + channelName,
           type: 'tv',
           name: channelName,
-          poster: channelLogo,
-          background: channelLogo,
-          logo: channelLogo,
+          poster: tvgLogo || icon || defaultLogoUrl,
+          posterShape: 'square',
+          background: tvgLogo || icon,
           description: description || baseDescription,
-          genres: [groupTitle],
-          posterShape: 'square'
+          genres: groupTitle ? [groupTitle] : (genres || ['TV']),
+          releaseInfo: groupTitle || 'TV',
+          logo: tvgLogo || icon
         };
 
-        console.log('Creato meta per canale:', JSON.stringify(meta, null, 2));
         return meta;
       });
 
-    console.log(`Trovati ${filteredChannels.length} canali`);
     return Promise.resolve({ metas: filteredChannels });
   } catch (error) {
     console.error('Errore nella ricerca dei canali:', error);
@@ -206,13 +205,20 @@ builder.defineStreamHandler(async (args) => {
     console.log('Canale trovato:', channel);
 
     const stream = {
+      id: channel.url,
       title: channel.name,
+      type: 'tv',
       url: channel.url,
+      name: 'IPTV Stream',
       behaviorHints: {
         notWebReady: true,
         bingeGroup: "tv"
       }
     };
+
+    if (channel.tvg && channel.tvg.logo) {
+      stream.thumbnail = channel.tvg.logo;
+    }
 
     console.log('Stream generato:', JSON.stringify(stream, null, 2));
     return Promise.resolve({ streams: [stream] });
@@ -252,8 +258,11 @@ function getChannelInfo(epgData, channelName) {
   };
 }
 
-// Avvia il server HTTP
-serveHTTP(builder.getInterface(), { port: port });
+// Configurazione del server HTTP
+const app = express();
 
-// Se vuoi pubblicare l'addon su Stremio Central, usa questa riga:
-// publishToCentral("https://<your-domain>/manifest.json");
+// Servi i file statici dalla directory corrente
+app.use(express.static(__dirname));
+
+// Crea il server con l'addon e l'app express
+serveHTTP(builder.getInterface(), { app, port });
