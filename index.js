@@ -1,4 +1,79 @@
-const addonSDK = require('stremio-addon-sdk');
+// Handler per gli stream
+builder.defineStreamHandler(async (args) => {
+  try {
+    console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
+    
+    if (!cachedData.m3u || !cachedData.epg) {
+      await updateCache();
+    }
+
+    // Rimuovi il prefisso 'tv' dall'ID per trovare il canale
+    const channelName = args.id.replace(/^tv/, '');
+    console.log('Cerco canale con nome:', channelName);
+
+    // Trova il canale specifico richiesto
+    const channel = cachedData.m3u.find(item => item.name === channelName);
+    
+    if (!channel) {
+      console.log('Canale non trovato. Nome cercato:', channelName);
+      return Promise.resolve({ streams: [] });
+    }
+
+    console.log('Canale trovato:', channel);
+
+    const stream = {
+      title: channel.name,
+      url: channel.url,
+      behaviorHints: {
+        notWebReady: true,
+        bingeGroup: "tv"
+      }
+    };
+
+    console.log('Stream generato:', JSON.stringify(stream, null, 2));
+    return Promise.resolve({ streams: [stream] });
+
+  } catch (error) {
+    console.error('Errore nel caricamento dello stream:', error);
+    return Promise.resolve({ streams: [] });
+  }
+});// Handler per la ricerca dei canali
+builder.defineCatalogHandler(async (args) => {
+  try {
+    console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
+    const { search } = args.extra || {};
+
+    if (!cachedData.m3u || !cachedData.epg) {
+      await updateCache();
+    }
+
+    const filteredChannels = cachedData.m3u
+      .filter(item => !search || item.name.toLowerCase().includes(search.toLowerCase()))
+      .map(item => {
+        const channelName = item.name;
+        const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
+
+        const meta = {
+          id: 'tv' + channelName,
+          type: 'tv',
+          name: channelName,
+          poster: icon || 'https://www.stremio.com/website/stremio-white-small.png',
+          description: description || channelName,
+          genres: genres || ['TV'],
+          posterShape: 'square'
+        };
+
+        console.log('Creato meta per canale:', JSON.stringify(meta, null, 2));
+        return meta;
+      });
+
+    console.log(`Trovati ${filteredChannels.length} canali`);
+    return Promise.resolve({ metas: filteredChannels });
+  } catch (error) {
+    console.error('Errore nella ricerca dei canali:', error);
+    return Promise.resolve({ metas: [] });
+  }
+});const addonSDK = require('stremio-addon-sdk');
 const { addonBuilder, serveHTTP } = addonSDK;
 const axios = require('axios');
 const parser = require('iptv-playlist-parser');
@@ -15,13 +90,13 @@ const builder = new addonBuilder({
   name: 'IPTV Italia Addon',
   description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
   resources: ['stream', 'catalog'],
-  types: ['channel'],
-  idPrefixes: ['tt'],
+  types: ['tv'],
+  idPrefixes: ['tv'],
   catalogs: [
     {
-      type: 'channel',
-      id: 'italia',
-      name: 'Canali Italia',
+      type: 'tv',
+      id: 'iptvitalia',
+      name: 'Canali TV Italia',
       extra: [
         {
           name: 'search',
