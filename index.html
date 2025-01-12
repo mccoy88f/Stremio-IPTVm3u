@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aggiungi IPTV Italia a Stremio</title>
+    <link rel="icon" type="image/png" href="tv.png">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -20,34 +21,52 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
         }
         h1 {
             color: #333;
+            margin-bottom: 20px;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
         }
         button {
             background-color: #007bff;
             color: #fff;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
         button:hover {
             background-color: #0056b3;
+        }
+        .description {
+            color: #666;
+            margin: 20px 0;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Aggiungi IPTV Italia a Stremio</h1>
+        <img src="tv.png" alt="IPTV Italia Logo" class="logo">
+        <h1>IPTV Italia per Stremio</h1>
+        <p class="description">
+            Aggiungi l'addon IPTV Italia al tuo Stremio per guardare i canali TV italiani disponibili gratuitamente.
+        </p>
         <button onclick="addToStremio()">Aggiungi a Stremio</button>
     </div>
 
     <script>
         function addToStremio() {
             const manifestUrl = window.location.origin + '/manifest.json';
-            const stremioUrl = `stremio://${manifestUrl}`;
+            const stremioUrl = `stremio://${manifestUrl}/manifest.json`;
             window.location.href = stremioUrl;
         }
     </script>
