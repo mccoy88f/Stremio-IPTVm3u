@@ -6,9 +6,6 @@ const { parsePlaylist, parseEPG, getChannelInfo } = require('./parser');
 
 const port = process.env.PORT || 10000;
 
-// Array delle opzioni per le categorie
-let categoryOptions = [];
-
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
     id: 'org.mccoy88f.iptvaddon',
@@ -27,19 +24,12 @@ const builder = new addonBuilder({
             extra: [
                 {
                     name: 'search',
-                    isRequired: false,
-                }
-            ]
-        },
-        {
-            type: 'tv',
-            id: 'iptvitalia-categories',
-            name: 'Categorie',
-            extra: [
+                    isRequired: false
+                },
                 {
                     name: 'genre',
-                    isRequired: true,
-                    options: categoryOptions
+                    isRequired: false,
+                    options: [] // Sarà popolato dinamicamente
                 }
             ]
         }
@@ -70,12 +60,11 @@ async function updateCache() {
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
         console.log('Gruppi trovati:', [...groups]);
 
-        // Aggiorna le opzioni delle categorie
-        categoryOptions.length = 0; // Svuota l'array
-        categoryOptions.push(...[...groups].map(group => ({
+        // Aggiorna le opzioni delle categorie nel manifest
+        builder.manifest.catalogs[0].extra[1].options = [...groups].map(group => ({
             name: group,
             value: group
-        })));
+        }));
 
         // Gestisci l'EPG se abilitato
         let epgData = null;
@@ -136,7 +125,7 @@ builder.defineCatalogHandler(async (args) => {
 
         const filteredChannels = cachedData.m3u
             .filter(item => {
-                // Filtra per ricerca e gruppo se specificati
+                // Filtra per ricerca e genere se specificati
                 const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
                 const matchesGenre = !genre || item.group.title === genre;
                 return matchesSearch && matchesGenre;
@@ -145,11 +134,14 @@ builder.defineCatalogHandler(async (args) => {
                 const channelName = item.name;
                 const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
 
-                // Estrai le informazioni aggiuntive dalla playlist M3U
+                // Estrai le informazioni dalla playlist M3U
                 const tvgLogo = item.tvg?.logo || null;
                 const groupTitle = item.group?.title || null;
                 const tvgId = item.tvg?.id || null;
                 const channelNumber = item.tvg?.chno || null;
+
+                // Crea una chiave di ordinamento basata sul numero del canale
+                const sortingKey = channelNumber ? `${channelNumber}. ${channelName}` : channelName;
 
                 // Crea una descrizione base se l'EPG non è disponibile
                 const baseDescription = [
@@ -164,21 +156,28 @@ builder.defineCatalogHandler(async (args) => {
                 return {
                     id: 'tv' + channelName,
                     type: 'tv',
-                    name: channelNumber ? `${channelNumber}. ${channelName}` : channelName,
+                    name: channelName,  // Solo il nome del canale
                     poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
                     background: tvgLogo || icon,
                     logo: tvgLogo || icon,
                     description: description || baseDescription,
-                    genres: groupTitle ? [groupTitle] : (genres || ['TV']),
-                    posterShape: 'square'
+                    genres: [groupTitle || 'TV'],  // Usa il gruppo come genere
+                    posterShape: 'square',
+                    sortingKey: sortingKey
                 };
             });
 
-        // Ordina i canali per numero se disponibile
+        // Ordina i canali per numero
         filteredChannels.sort((a, b) => {
-            const numA = parseInt(a.name);
-            const numB = parseInt(b.name);
-            if (!isNaN(numA) && !isNaN(numB)) {
+            const getChannelNumber = (key) => {
+                const match = key.match(/^(\d+)\./);
+                return match ? parseInt(match[1]) : Number.MAX_SAFE_INTEGER;
+            };
+            
+            const numA = getChannelNumber(a.sortingKey);
+            const numB = getChannelNumber(b.sortingKey);
+            
+            if (numA !== numB) {
                 return numA - numB;
             }
             return a.name.localeCompare(b.name);
