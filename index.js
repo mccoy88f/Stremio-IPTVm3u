@@ -6,6 +6,9 @@ const { parsePlaylist, parseEPG, getChannelInfo } = require('./parser');
 
 const port = process.env.PORT || 10000;
 
+// Array delle opzioni per le categorie
+let categoryOptions = [];
+
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
     id: 'org.mccoy88f.iptvaddon',
@@ -36,7 +39,7 @@ const builder = new addonBuilder({
                 {
                     name: 'genre',
                     isRequired: true,
-                    options: [] // Verrà popolato dinamicamente con i gruppi
+                    options: categoryOptions
                 }
             ]
         }
@@ -67,6 +70,13 @@ async function updateCache() {
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
         console.log('Gruppi trovati:', [...groups]);
 
+        // Aggiorna le opzioni delle categorie
+        categoryOptions.length = 0; // Svuota l'array
+        categoryOptions.push(...[...groups].map(group => ({
+            name: group,
+            value: group
+        })));
+
         // Gestisci l'EPG se abilitato
         let epgData = null;
         if (enableEPG) {
@@ -93,15 +103,10 @@ async function updateCache() {
             groups: groups
         };
 
-        // Aggiorna dinamicamente il catalogo con i gruppi trovati
-        builder.manifest.catalogs[1].extra[0].options = [...groups].map(group => ({
-            name: group,
-            value: group
-        }));
-
         console.log('Cache aggiornata con successo!');
     } catch (error) {
         console.error('Errore nell\'aggiornamento della cache:', error);
+        throw error;
     }
 }
 
