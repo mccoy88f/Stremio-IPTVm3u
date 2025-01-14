@@ -27,7 +27,7 @@ function createChannelMeta(item) {
         background: item.tvg?.logo,
         logo: item.tvg?.logo,
         description: description,
-        genres: [item.group],
+        genres: [item.group], // Aggiungi il gruppo come genere
         posterShape: 'square',
         runtime: "LIVE",
         releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
@@ -43,6 +43,7 @@ async function catalogHandler({ type, id, extra }) {
     try {
         console.log('Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
         
+        // Aggiorna la cache se necessario
         if (CacheManager.isStale()) {
             await CacheManager.updateCache();
         }
@@ -51,42 +52,42 @@ async function catalogHandler({ type, id, extra }) {
         const { search, genre, skip = 0 } = extra || {};
         const ITEMS_PER_PAGE = 100;
 
-        // Se richiesti solo i generi
+        // Se viene richiesta la lista dei generi
         if (genre === '') {
             console.log('Richiesta lista generi');
             return {
                 metas: [],
-                genres: cachedData.genres.map(g => g.name)
+                genres: cachedData.genres.map(g => g.name) // Restituisci i generi disponibili
             };
         }
 
-        // Filtra i canali in base ai parametri
+        // Filtra i canali in base al genere se specificato
         let channels = [];
         if (genre) {
-            channels = CacheManager.getChannelsByGenre(genre);
+            channels = CacheManager.getChannelsByGenre(genre); // Filtra per genere
             console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
-            channels = CacheManager.searchChannels(search);
+            channels = CacheManager.searchChannels(search); // Filtra per ricerca
             console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
-            channels = cachedData.m3u || [];
+            channels = cachedData.m3u || []; // Tutti i canali se nessun filtro
         }
 
-        // Ordina i canali
+        // Ordina i canali per numero (se disponibile) o per nome
         channels.sort((a, b) => {
             const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
             const numB = b.tvg?.chno || Number.MAX_SAFE_INTEGER;
             return numA - numB || a.name.localeCompare(b.name);
         });
 
-        // Implementa la paginazione
+        // Paginazione
         const startIdx = parseInt(skip) || 0;
         const paginatedChannels = channels.slice(startIdx, startIdx + ITEMS_PER_PAGE);
         const metas = paginatedChannels.map(createChannelMeta);
 
         return {
             metas,
-            genres: cachedData.genres.map(g => g.name)
+            genres: cachedData.genres.map(g => g.name) // Restituisci i generi disponibili
         };
 
     } catch (error) {
