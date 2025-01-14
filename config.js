@@ -1,4 +1,4 @@
-module.exports = {
+const config = {
     // Server configuration
     port: process.env.PORT || 10000,
     
@@ -46,16 +46,10 @@ module.exports = {
                 extra: [
                     {
                         name: 'genre',
-                        isRequired: false,
-                        options: [], // Verrà popolato dinamicamente
-                        optionsLimit: 100
-                    },
-                    {
-                        name: 'search',
                         isRequired: false
                     },
                     {
-                        name: 'skip',
+                        name: 'search',
                         isRequired: false
                     }
                 ]
@@ -63,3 +57,5 @@ module.exports = {
         ]
     }
 };
+
+module.exports = config;
