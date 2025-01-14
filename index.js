@@ -98,11 +98,11 @@ async function initializeAddon() {
         description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
         logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
         resources: ['stream', 'catalog'],
-        types: ['channel'], // Usa 'channel' invece di 'tv' per compatibilità con Stremio
+        types: ['tv'], // Usa 'tv' per i canali live
         idPrefixes: ['tv'],
         catalogs: [
             {
-                type: 'channel',
+                type: 'tv', // Usa 'tv' per i canali live
                 id: 'iptvitalia',
                 name: 'Canali TV Italia',
                 extra: [
@@ -180,7 +180,7 @@ async function startServer() {
                     // Meta object con i campi aggiuntivi per lo streaming
                     const meta = {
                         id: 'tv' + channelName, // ID univoco per il canale
-                        type: 'channel', // Usa 'channel' per i canali live
+                        type: 'tv', // Usa 'tv' per i canali live
                         name: channelName,
                         poster: item.tvg?.logo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
                         background: item.tvg?.logo || icon,
@@ -201,6 +201,7 @@ async function startServer() {
             // Ordina i canali per numero
             filteredChannels.sort((a, b) => {
                 const getChannelNumber = (key) => {
+                    if (!key) return Number.MAX_SAFE_INTEGER; // Se sortingKey non è definito
                     const match = key.match(/^(\d+)\./);
                     return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
                 };
