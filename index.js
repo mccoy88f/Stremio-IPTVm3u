@@ -9,12 +9,12 @@ const port = process.env.PORT || 10000;
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
     id: 'org.mccoy88f.iptvaddon',
-    version: '1.1.0',
+    version: '1.0.0',
     name: 'IPTV Italia Addon',
     description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
     logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
     resources: ['stream', 'catalog'],
-    types: ['tv'],
+    types: ['tv', 'channel'],
     idPrefixes: ['tv'],
     catalogs: [
         {
@@ -23,17 +23,17 @@ const builder = new addonBuilder({
             name: 'Canali TV Italia',
             extra: [
                 {
-                    name: 'search',
-                    isRequired: false
-                },
-                {
                     name: 'genre',
                     isRequired: false,
-                    options: [] // Sarà popolato dinamicamente
+                    options: [] // Sarà popolato dinamicamente dai gruppi della playlist
+                },
+                {
+                    name: 'search',
+                    isRequired: false
                 }
             ]
         }
-    ],
+    ]
 });
 
 let cachedData = {
@@ -125,7 +125,6 @@ builder.defineCatalogHandler(async (args) => {
 
         const filteredChannels = cachedData.m3u
             .filter(item => {
-                // Filtra per ricerca e genere se specificati
                 const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
                 const matchesGenre = !genre || item.group.title === genre;
                 return matchesSearch && matchesGenre;
@@ -153,18 +152,24 @@ builder.defineCatalogHandler(async (args) => {
                     enableEPG ? null : '\nNota: EPG non abilitato'
                 ].filter(Boolean).join('\n');
 
-                return {
+                // Meta object con i campi aggiuntivi per lo streaming
+                const meta = {
                     id: 'tv' + channelName,
                     type: 'tv',
-                    name: channelName,  // Solo il nome del canale
+                    name: channelName,
                     poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
                     background: tvgLogo || icon,
                     logo: tvgLogo || icon,
                     description: description || baseDescription,
-                    genres: [groupTitle || 'TV'],  // Usa il gruppo come genere
+                    genres: [groupTitle || 'Altri'],
                     posterShape: 'square',
+                    streams: [], // Indica che il contenuto ha degli stream
+                    videos: [], // Indica che è un contenuto riproducibile
+                    runtime: "LIVE", // Indica che è un contenuto live
                     sortingKey: sortingKey
                 };
+
+                return meta;
             });
 
         // Ordina i canali per numero
