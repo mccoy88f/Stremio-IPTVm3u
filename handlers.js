@@ -27,7 +27,7 @@ function createChannelMeta(item) {
         background: item.tvg?.logo,
         logo: item.tvg?.logo,
         description: description,
-        genres: [item.group], // Aggiungi il gruppo come genere
+        genres: [item.group],
         posterShape: 'square',
         runtime: "LIVE",
         releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
@@ -55,22 +55,24 @@ async function catalogHandler({ type, id, extra }) {
         // Se viene richiesta la lista dei generi
         if (genre === '') {
             console.log('Richiesta lista generi');
+            // Restituisci alcuni canali insieme ai generi per assicurarti che l'interfaccia mostri i filtri
+            const sampleChannels = cachedData.m3u.slice(0, 10);
             return {
-                metas: [],
-                genres: cachedData.genres.map(g => g.name) // Restituisci i generi disponibili
+                metas: sampleChannels.map(createChannelMeta),
+                genres: cachedData.genres.map(g => g.name)
             };
         }
 
         // Filtra i canali in base al genere se specificato
         let channels = [];
         if (genre) {
-            channels = CacheManager.getChannelsByGenre(genre); // Filtra per genere
+            channels = CacheManager.getChannelsByGenre(genre);
             console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
-            channels = CacheManager.searchChannels(search); // Filtra per ricerca
+            channels = CacheManager.searchChannels(search);
             console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
-            channels = cachedData.m3u || []; // Tutti i canali se nessun filtro
+            channels = cachedData.m3u || [];
         }
 
         // Ordina i canali per numero (se disponibile) o per nome
@@ -87,7 +89,7 @@ async function catalogHandler({ type, id, extra }) {
 
         return {
             metas,
-            genres: cachedData.genres.map(g => g.name) // Restituisci i generi disponibili
+            genres: cachedData.genres.map(g => g.name)
         };
 
     } catch (error) {
@@ -116,10 +118,36 @@ async function streamHandler({ id }) {
             stream.meta = meta;
         });
 
+        // Aggiungi informazioni EPG agli stream se disponibili
+        if (config.enableEPG) {
+            const epgData = EPGManager.getCurrentProgram(channel.tvg?.id);
+            if (epgData) {
+                streams.forEach(stream => {
+                    stream.meta.currentProgram = {
+                        title: epgData.title,
+                        description: epgData.description,
+                        startTime: epgData.start,
+                        endTime: epgData.stop
+                    };
+                });
+            }
+        }
+
         return { streams };
     } catch (error) {
         console.error('Errore nel caricamento dello stream:', error);
-        return { streams: [] };
+        return { 
+            streams: [{
+                name: 'Errore',
+                title: 'Errore nel caricamento dello stream',
+                url: '',
+                behaviorHints: {
+                    notWebReady: true,
+                    bingeGroup: "tv",
+                    errorMessage: `Errore: ${error.message}`
+                }
+            }]
+        };
     }
 }
 
