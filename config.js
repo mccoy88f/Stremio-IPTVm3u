@@ -47,7 +47,7 @@ const config = {
                     {
                         name: 'genre',
                         isRequired: false,
-                        options: ['Rai', 'Mediaset', 'Sky', 'Discovery', 'Radio', 'Altro']
+                        options: [] // Lasciamo vuoto l'array dei generi
                     },
                     {
                         name: 'search',
