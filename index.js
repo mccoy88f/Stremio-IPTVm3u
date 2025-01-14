@@ -17,6 +17,16 @@ async function initializeAddon() {
         groups = [];
     }
 
+    const genreOptions = groups.map(genre => {
+        console.log('Creazione opzione per genere:', genre);
+        return {
+            name: String(genre),
+            value: String(genre)
+        };
+    });
+
+    console.log('Opzioni dei generi create:', genreOptions);
+
     const builder = new addonBuilder({
         ...config.manifest,
         catalogs: [{
@@ -26,10 +36,7 @@ async function initializeAddon() {
             extra: [{
                 name: 'genre',
                 isRequired: false,
-                options: groups.map(genre => ({
-                    name: genre,
-                    value: genre
-                }))
+                options: genreOptions
             }, {
                 name: 'search',
                 isRequired: false
@@ -37,14 +44,19 @@ async function initializeAddon() {
         }]
     });
 
+    if (!builder.manifest) {
+        console.error('Builder manifest non inizializzato');
+        return null;
+    }
+
     // Debug: Verifica il manifest
-    if (!builder.manifest || !builder.manifest.catalogs || !builder.manifest.catalogs.length) {
+    if (!builder.manifest.catalogs || !builder.manifest.catalogs.length) {
         console.error('Errore: Manifest non inizializzato correttamente');
         console.log('Builder:', builder);
         console.log('Manifest:', builder.manifest);
     } else {
         console.log('Manifest inizializzato correttamente');
-        console.log('Generi nel manifest:', builder.manifest.catalogs[0].extra[0].options);
+        console.log('Generi nel manifest:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options));
     }
 
     // Definisci gli handler
@@ -57,6 +69,11 @@ async function initializeAddon() {
 // Avvia il server
 async function startServer() {
     const builder = await initializeAddon();
+    
+    if (!builder) {
+        console.error('Errore: Builder non inizializzato correttamente');
+        process.exit(1);
+    }
 
     // Aggiorna la cache all'avvio
     updateCache(builder).then(() => {
