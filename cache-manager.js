@@ -15,20 +15,19 @@ class CacheManager extends EventEmitter {
 
     async updateCache(force = false) {
         if (this.cache.updateInProgress) {
-            console.log('Aggiornamento cache già in corso, skip...');
+            console.log('⚠️  Aggiornamento cache già in corso, skip...');
             return;
         }
 
         try {
             this.cache.updateInProgress = true;
-            console.log('Aggiornamento della cache in corso...');
+            console.log('\n=== Inizio Aggiornamento Cache ===');
 
-            // Check if update is needed
             const needsUpdate = force || !this.cache.lastUpdated || 
                 (Date.now() - this.cache.lastUpdated) > this.config.cacheSettings.updateInterval;
 
             if (!needsUpdate) {
-                console.log('Cache ancora valida, skip aggiornamento');
+                console.log('ℹ️  Cache ancora valida, skip aggiornamento');
                 return;
             }
 
@@ -36,8 +35,6 @@ class CacheManager extends EventEmitter {
             console.log('Caricamento playlist da:', this.config.M3U_URL);
             const stremioData = await this.transformer.loadAndTransform(this.config.M3U_URL);
             
-            console.log(`Playlist trasformata: ${stremioData.channels.length} canali, ${stremioData.genres.length} generi`);
-
             // Aggiorna la cache
             this.cache = {
                 stremioData,
@@ -45,11 +42,20 @@ class CacheManager extends EventEmitter {
                 updateInProgress: false
             };
 
+            // Aggiorna i generi nel manifest
+            this.config.manifest.catalogs[0].extra[0].options = stremioData.genres;
+
+            console.log('\nRiepilogo Cache:');
+            console.log(`✓ Canali in cache: ${stremioData.channels.length}`);
+            console.log(`✓ Generi trovati: ${stremioData.genres.length}`);
+            console.log(`✓ Lista generi: ${stremioData.genres.join(', ')}`);
+            console.log(`✓ Ultimo aggiornamento: ${new Date().toLocaleString()}`);
+            console.log('\n=== Cache Aggiornata con Successo ===\n');
+
             this.emit('cacheUpdated', this.cache);
-            console.log('Cache aggiornata con successo');
 
         } catch (error) {
-            console.error('Errore nell\'aggiornamento della cache:', error);
+            console.error('\n❌ ERRORE nell\'aggiornamento della cache:', error);
             this.cache.updateInProgress = false;
             this.emit('cacheError', error);
             throw error;
@@ -60,8 +66,8 @@ class CacheManager extends EventEmitter {
         if (!this.cache.stremioData) return { channels: [], genres: [] };
         
         return {
-            channels: [...this.cache.stremioData.channels],
-            genres: [...this.cache.stremioData.genres]
+            channels: this.cache.stremioData.channels,
+            genres: this.cache.stremioData.genres
         };
     }
 
@@ -74,7 +80,7 @@ class CacheManager extends EventEmitter {
     getChannelsByGenre(genre) {
         if (!genre) return this.cache.stremioData?.channels || [];
         return this.cache.stremioData?.channels.filter(
-            channel => channel.genre.includes(genre)
+            channel => channel.genre?.includes(genre)
         ) || [];
     }
 
