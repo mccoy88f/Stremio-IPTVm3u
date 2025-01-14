@@ -134,34 +134,25 @@ async function streamHandler({ id }) {
 
         // Inizia con lo stream diretto
         const streams = [{
-            name: channel.name,
-            title: channel.name,
-            url: channel.streamInfo.url,
+            name: channel.name, // Nome del canale
+            title: channel.name, // Titolo del canale
+            url: channel.streamInfo.url, // URL del flusso diretto
             behaviorHints: {
-                notWebReady: false,
+                notWebReady: false, // Compatibile con più dispositivi
                 bingeGroup: "tv"
             }
         }];
 
         // Aggiungi stream proxy se configurato
-        if (config.PROXY_URL) {
-            try {
-                const proxyStreams = await ProxyManager.getProxyStreams({
-                    name: channel.name,
-                    url: channel.streamInfo.url,
-                    headers: channel.streamInfo.headers
-                });
-                
-                // Modifica il nome dello stream proxy
-                proxyStreams.forEach(stream => {
-                    stream.name = `${channel.name} (Proxy)`;
-                    stream.title = `${channel.name} (Proxy)`;
-                });
-                
-                streams.push(...proxyStreams);
-            } catch (proxyError) {
-                console.error('Errore nella creazione dello stream proxy:', proxyError);
-            }
+        if (config.PROXY_URL && config.PROXY_PASSWORD) {
+            const proxyStreams = await ProxyManager.getProxyStreams({
+                name: channel.name,
+                url: channel.streamInfo.url,
+                headers: channel.streamInfo.headers
+            });
+
+            // Aggiungi i flussi proxy alla lista
+            streams.push(...proxyStreams);
         }
 
         // Aggiungi metadati a tutti gli stream
@@ -187,7 +178,6 @@ async function streamHandler({ id }) {
         });
 
         return { streams };
-
     } catch (error) {
         console.error('Errore nel caricamento dello stream:', error);
         return { 
