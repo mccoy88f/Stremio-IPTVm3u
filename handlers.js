@@ -3,7 +3,6 @@ const CacheManager = require('./cache-manager')(config);
 const EPGManager = require('./epg-manager');
 const ProxyManager = new (require('./proxy-manager'))(config);
 
-// Funzione di utilità per creare l'oggetto meta del canale
 function createChannelMeta(item) {
     const epgData = EPGManager.getCurrentProgram(item.tvg?.id);
     const upcoming = EPGManager.getUpcomingPrograms(item.tvg?.id, 3);
@@ -18,7 +17,6 @@ function createChannelMeta(item) {
         }
     }
 
-    // Creiamo un ID sicuro rimuovendo caratteri problematici
     const safeId = `tv|${item.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
     return {
@@ -41,69 +39,62 @@ function createChannelMeta(item) {
     };
 }
 
-// Handler per il catalogo
 async function catalogHandler({ type, id, extra }) {
     try {
         console.log('Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
-        const { search, genre } = extra || {};
-
-        // Verifica se la cache è obsoleta
+        
         if (CacheManager.isStale()) {
             await CacheManager.updateCache();
         }
 
         const cachedData = CacheManager.getCachedData();
-        
-        // Se è una richiesta per un ID specifico
-        if (id && id.startsWith('tv|')) {
-            const channelName = id.split('|')[1].replace(/_/g, ' ');
-            const channel = CacheManager.getChannel(channelName);
-            if (channel) {
-                return {
-                    metas: [createChannelMeta(channel)]
-                };
-            }
-            return { metas: [] };
-        }
+        const { search, genre, skip = 0 } = extra || {};
+        const ITEMS_PER_PAGE = 100;
 
-        // Se c'è una richiesta di generi
-        if (extra && extra.genre === '') {
+        // Se richiesti solo i generi
+        if (genre === '') {
+            console.log('Richiesta lista generi');
             return {
                 metas: [],
                 genres: cachedData.genres.map(g => g.name)
             };
         }
 
+        // Filtra i canali in base ai parametri
         let channels = [];
         if (genre) {
             channels = CacheManager.getChannelsByGenre(genre);
+            console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
             channels = CacheManager.searchChannels(search);
+            console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
             channels = cachedData.m3u || [];
         }
 
         // Ordina i canali
-        const sortedChannels = channels.length > 0 ? 
-            [...channels].sort((a, b) => {
-                const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
-                const numB = b.tvg?.chno || Number.MAX_SAFE_INTEGER;
-                return numA - numB || a.name.localeCompare(b.name);
-            }) : [];
+        channels.sort((a, b) => {
+            const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
+            const numB = b.tvg?.chno || Number.MAX_SAFE_INTEGER;
+            return numA - numB || a.name.localeCompare(b.name);
+        });
 
-        const metas = sortedChannels.map(createChannelMeta);
-        
-        return { 
+        // Implementa la paginazione
+        const startIdx = parseInt(skip) || 0;
+        const paginatedChannels = channels.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+        const metas = paginatedChannels.map(createChannelMeta);
+
+        return {
             metas,
             genres: cachedData.genres.map(g => g.name)
         };
+
     } catch (error) {
-        console.error('Errore nella ricerca dei canali:', error);
+        console.error('Errore nella gestione del catalogo:', error);
         return { metas: [], genres: [] };
     }
 }
 
-// Handler per gli stream
 async function streamHandler({ id }) {
     try {
         console.log('Stream richiesto per id:', id);
@@ -118,7 +109,7 @@ async function streamHandler({ id }) {
         console.log('Canale trovato:', channel.name);
         const streams = await ProxyManager.getProxyStreams(channel);
         
-        // Aggiungi le meta informazioni agli stream
+        // Aggiungi meta informazioni agli stream
         const meta = createChannelMeta(channel);
         streams.forEach(stream => {
             stream.meta = meta;
