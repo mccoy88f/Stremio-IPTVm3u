@@ -1,6 +1,14 @@
 const EventEmitter = require('events');
 const PlaylistTransformer = require('./playlist-transformer');
 
+function normalizeChannelName(name) {
+    return name
+        .replace(/_/g, ' ')          // Sostituisce underscore con spazi
+        .replace(/\s+/g, ' ')        // Normalizza spazi multipli
+        .trim()                      // Rimuove spazi iniziali e finali
+        .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
+}
+
 class CacheManager extends EventEmitter {
     constructor(config) {
         super();
@@ -73,7 +81,7 @@ class CacheManager extends EventEmitter {
 
     getChannel(channelName) {
         return this.cache.stremioData?.channels.find(
-            channel => channel.name === channelName
+            channel => normalizeChannelName(channel.name) === normalizeChannelName(channelName)
         );
     }
 
@@ -86,9 +94,9 @@ class CacheManager extends EventEmitter {
 
     searchChannels(query) {
         if (!query) return this.cache.stremioData?.channels || [];
-        const searchTerm = query.toLowerCase();
+        const searchTerm = normalizeChannelName(query);
         return this.cache.stremioData?.channels.filter(
-            channel => channel.name.toLowerCase().includes(searchTerm)
+            channel => normalizeChannelName(channel.name).includes(searchTerm)
         ) || [];
     }
 
