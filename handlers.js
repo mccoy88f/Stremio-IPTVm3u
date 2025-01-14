@@ -19,6 +19,9 @@ function createChannelMeta(item) {
 
     const safeId = `tv|${item.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+    // Assicurati che item.group sia un array o converti una stringa in array
+    const genres = Array.isArray(item.group) ? item.group : [item.group].filter(Boolean);
+
     return {
         id: safeId,
         type: 'tv',
@@ -27,7 +30,7 @@ function createChannelMeta(item) {
         background: item.tvg?.logo,
         logo: item.tvg?.logo,
         description: description,
-        genres: [item.group],
+        genres: genres, // Usa l'array di generi
         posterShape: 'square',
         runtime: "LIVE",
         releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
@@ -52,27 +55,29 @@ async function catalogHandler({ type, id, extra }) {
         const { search, genre, skip = 0 } = extra || {};
         const ITEMS_PER_PAGE = 100;
 
-        // Se viene richiesta la lista dei generi
-        if (genre === '') {
-            console.log('Richiesta lista generi');
-            // Restituisci alcuni canali insieme ai generi per assicurarti che l'interfaccia mostri i filtri
-            const sampleChannels = cachedData.m3u.slice(0, 10);
-            return {
-                metas: sampleChannels.map(createChannelMeta),
-                genres: cachedData.genres.map(g => g.name)
-            };
+        // Assicurati che i generi siano sempre disponibili nel manifest
+        if (!config.manifest.catalogs[0].extra[0].options.length) {
+            config.manifest.catalogs[0].extra[0].options = cachedData.genres.map(g => g.name);
         }
 
-        // Filtra i canali in base al genere se specificato
+        // Log dei generi disponibili
+        console.log('Generi disponibili:', cachedData.genres.map(g => g.name));
+
+        // Gestione dei canali in base ai filtri
         let channels = [];
+        
         if (genre) {
+            // Filtra per genere specifico
             channels = CacheManager.getChannelsByGenre(genre);
             console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
+            // Filtra per ricerca
             channels = CacheManager.searchChannels(search);
             console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
+            // Nessun filtro, mostra tutti i canali
             channels = cachedData.m3u || [];
+            console.log(`Mostrati tutti i canali: ${channels.length}`);
         }
 
         // Ordina i canali per numero (se disponibile) o per nome
@@ -87,10 +92,14 @@ async function catalogHandler({ type, id, extra }) {
         const paginatedChannels = channels.slice(startIdx, startIdx + ITEMS_PER_PAGE);
         const metas = paginatedChannels.map(createChannelMeta);
 
-        return {
+        // Costruisci e restituisci la risposta
+        const response = {
             metas,
             genres: cachedData.genres.map(g => g.name)
         };
+
+        console.log(`Risposta catalogo: ${metas.length} canali, ${response.genres.length} generi`);
+        return response;
 
     } catch (error) {
         console.error('Errore nella gestione del catalogo:', error);
