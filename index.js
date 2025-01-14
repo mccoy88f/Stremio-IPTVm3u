@@ -25,10 +25,18 @@ async function initializeAddon() {
         };
     });
 
-    console.log('Opzioni dei generi create:', genreOptions);
+    console.log('Opzioni dei generi create:', JSON.stringify(genreOptions, null, 2));
 
-    const builder = new addonBuilder({
-        ...config.manifest,
+    // Crea il manifest completo
+    const manifestConfig = {
+        id: config.manifest.id,
+        version: config.manifest.version,
+        name: config.manifest.name,
+        description: config.manifest.description,
+        logo: config.manifest.logo,
+        resources: config.manifest.resources,
+        types: config.manifest.types,
+        idPrefixes: config.manifest.idPrefixes,
         catalogs: [{
             type: 'tv',
             id: 'iptvitalia',
@@ -42,22 +50,22 @@ async function initializeAddon() {
                 isRequired: false
             }]
         }]
-    });
+    };
 
-    if (!builder.manifest) {
-        console.error('Builder manifest non inizializzato');
+    console.log('Creazione builder con manifest:', JSON.stringify(manifestConfig, null, 2));
+
+    const builder = new addonBuilder(manifestConfig);
+
+    // Verifica il builder e il manifest
+    if (!builder || !builder.manifest) {
+        console.error('Errore: Builder o manifest non inizializzati correttamente');
+        console.log('Builder:', builder);
         return null;
     }
 
-    // Debug: Verifica il manifest
-    if (!builder.manifest.catalogs || !builder.manifest.catalogs.length) {
-        console.error('Errore: Manifest non inizializzato correttamente');
-        console.log('Builder:', builder);
-        console.log('Manifest:', builder.manifest);
-    } else {
-        console.log('Manifest inizializzato correttamente');
-        console.log('Generi nel manifest:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options));
-    }
+    console.log('Manifest inizializzato correttamente');
+    console.log('Catalogs nel manifest:', JSON.stringify(builder.manifest.catalogs, null, 2));
+    console.log('Generi nel manifest:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options, null, 2));
 
     // Definisci gli handler
     builder.defineCatalogHandler(args => catalogHandler(args, builder));
@@ -76,11 +84,12 @@ async function startServer() {
     }
 
     // Aggiorna la cache all'avvio
-    updateCache(builder).then(() => {
+    try {
+        await updateCache(builder);
         console.log('Cache aggiornata con successo all\'avvio.');
-    }).catch((err) => {
+    } catch (err) {
         console.error('Errore durante l\'aggiornamento della cache all\'avvio:', err);
-    });
+    }
 
     // Aggiorna la cache ogni giorno alle 3:00 del mattino (solo se l'EPG è abilitato)
     if (config.enableEPG) {
@@ -91,7 +100,11 @@ async function startServer() {
 
     // Avvia il server HTTP
     serveHTTP(builder.getInterface(), { port: config.port });
+    console.log(`Server HTTP avviato sulla porta ${config.port}`);
 }
 
 // Avvia il server
-startServer();
+startServer().catch(error => {
+    console.error('Errore durante l\'avvio del server:', error);
+    process.exit(1);
+});
