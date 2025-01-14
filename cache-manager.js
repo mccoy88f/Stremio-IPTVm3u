@@ -12,10 +12,6 @@ class CacheManager extends EventEmitter {
             lastUpdated: null,
             updateInProgress: false
         };
-        
-        // Bindare i metodi
-        this.updateCache = this.updateCache.bind(this);
-        this.getCachedData = this.getCachedData.bind(this);
     }
 
     async updateCache(force = false) {
@@ -42,7 +38,7 @@ class CacheManager extends EventEmitter {
             console.log('Playlist M3U caricata:', items.length, 'canali');
 
             // Update EPG if enabled
-            if (this.config.enableEPG && EPGManager.needsUpdate()) {
+            if (this.config.enableEPG && EPGManager.needsUpdate) {
                 console.log('Aggiornamento EPG...');
                 await EPGManager.parseEPG(this.config.EPG_URL);
             }
@@ -50,7 +46,7 @@ class CacheManager extends EventEmitter {
             // Update cache
             this.cache = {
                 m3u: items,
-                genres: groups,
+                genres: groups, // Ora groups contiene già oggetti con name e value
                 lastUpdated: Date.now(),
                 updateInProgress: false
             };
@@ -67,12 +63,10 @@ class CacheManager extends EventEmitter {
     }
 
     getCachedData() {
-        // Return a deep copy to prevent modifications
         return {
-            m3u: this.cache.m3u ? [...this.cache.m3u] : null,
+            m3u: this.cache.m3u ? [...this.cache.m3u] : [],
             genres: [...this.cache.genres],
-            lastUpdated: this.cache.lastUpdated,
-            epg: EPGManager
+            lastUpdated: this.cache.lastUpdated
         };
     }
 
@@ -82,7 +76,7 @@ class CacheManager extends EventEmitter {
 
     getChannelsByGenre(genre) {
         if (!genre) return this.cache.m3u || [];
-        return this.cache.m3u?.filter(item => item.genres.includes(genre)) || [];
+        return this.cache.m3u?.filter(item => item.group === genre) || [];
     }
 
     searchChannels(query) {
@@ -96,7 +90,7 @@ class CacheManager extends EventEmitter {
     isStale() {
         if (!this.cache.lastUpdated) return true;
         const hours = (Date.now() - this.cache.lastUpdated) / (1000 * 60 * 60);
-        return hours >= 12; // Consider cache stale after 12 hours
+        return hours >= 12;
     }
 }
 
