@@ -44,7 +44,7 @@ async function catalogHandler({ type, id, extra }) {
         const ITEMS_PER_PAGE = 100;
 
         // Log dei generi disponibili per debug
-        console.log('Generi disponibili:', config.manifest.catalogs[0].extra[0].options);
+        console.log('Generi disponibili nella cache:', cachedData.genres);
         console.log('Genere richiesto:', genre);
 
         // Filtraggio canali
@@ -66,10 +66,10 @@ async function catalogHandler({ type, id, extra }) {
             console.log(`Caricati tutti i canali: ${channels.length}`);
         }
 
-        // Ordinamento canali (prima per numero di canale, poi per nome)
+        // Ordinamento canali
         channels.sort((a, b) => {
-            const numA = a.streamInfo.tvg?.chno || Number.MAX_SAFE_INTEGER;
-            const numB = b.streamInfo.tvg?.chno || Number.MAX_SAFE_INTEGER;
+            const numA = a.streamInfo?.tvg?.chno || Number.MAX_SAFE_INTEGER;
+            const numB = b.streamInfo?.tvg?.chno || Number.MAX_SAFE_INTEGER;
             return numA - numB || a.name.localeCompare(b.name);
         });
 
@@ -87,7 +87,7 @@ async function catalogHandler({ type, id, extra }) {
                 background: channel.background,
                 logo: channel.logo,
                 description: channel.description,
-                genre: channel.genre, // Array di generi
+                genre: channel.genre, // Manteniamo l'array dei generi originale
                 posterShape: channel.posterShape,
                 runtime: channel.runtime,
                 releaseInfo: channel.releaseInfo,
@@ -95,13 +95,13 @@ async function catalogHandler({ type, id, extra }) {
             };
             
             // Aggiungi informazioni EPG se disponibili
-            return enrichWithEPG(meta, channel.streamInfo.tvg?.id);
+            return enrichWithEPG(meta, channel.streamInfo?.tvg?.id);
         });
 
+        // Sempre includi i generi nella risposta
         const response = {
             metas,
-            // Includi sempre i generi disponibili nella risposta
-            genres: config.manifest.catalogs[0].extra[0].options
+            genres: cachedData.genres // Usa i generi dalla cache
         };
 
         console.log('Risposta catalogo:', {
@@ -134,7 +134,7 @@ async function streamHandler({ id }) {
 
         // Inizia con lo stream diretto
         const streams = [{
-            name: channel.name, // Nome semplice senza "(Diretto)"
+            name: channel.name,
             title: channel.name,
             url: channel.streamInfo.url,
             behaviorHints: {
@@ -181,7 +181,7 @@ async function streamHandler({ id }) {
         };
 
         // Arricchisci con EPG e aggiungi ai stream
-        const enrichedMeta = enrichWithEPG(meta, channel.streamInfo.tvg?.id);
+        const enrichedMeta = enrichWithEPG(meta, channel.streamInfo?.tvg?.id);
         streams.forEach(stream => {
             stream.meta = enrichedMeta;
         });
