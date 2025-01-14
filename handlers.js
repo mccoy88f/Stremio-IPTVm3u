@@ -3,6 +3,19 @@ const CacheManager = require('./cache-manager')(config);
 const EPGManager = require('./epg-manager');
 const ProxyManager = new (require('./proxy-manager'))(config);
 
+function normalizeChannelName(name) {
+    const normalized = name
+        .replace(/_/g, ' ')          // Sostituisce underscore con spazi
+        .replace(/\s+/g, ' ')        // Normalizza spazi multipli
+        .replace(/\./g, '')          // Rimuove i punti
+        .replace(/(\d+)[\s.]*(\d+)/g, '$1$2') // Unisce i numeri (102.5 o 102 5 -> 1025)
+        .trim()                      // Rimuove spazi iniziali e finali
+        .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
+    
+    console.log(`[Handlers] Normalizzazione nome canale: "${name}" -> "${normalized}"`);
+    return normalized;
+}
+
 /**
  * Arricchisce i metadati del canale con informazioni EPG
  */
@@ -32,7 +45,7 @@ function enrichWithEPG(meta, channelId) {
 
 async function catalogHandler({ type, id, extra }) {
     try {
-        console.log('Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
+        console.log('[Handlers] Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
         
         // Aggiorna la cache se necessario
         if (CacheManager.isStale()) {
@@ -44,8 +57,8 @@ async function catalogHandler({ type, id, extra }) {
         const ITEMS_PER_PAGE = 100;
 
         // Log dei generi disponibili per debug
-        console.log('Generi disponibili nella cache:', cachedData.genres);
-        console.log('Genere richiesto:', genre);
+        console.log('[Handlers] Generi disponibili nella cache:', cachedData.genres);
+        console.log('[Handlers] Genere richiesto:', genre);
 
         // Filtraggio canali
         let channels = [];
@@ -54,16 +67,18 @@ async function catalogHandler({ type, id, extra }) {
             channels = cachedData.channels.filter(channel => 
                 channel.genre && channel.genre.includes(genre)
             );
-            console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
+            console.log(`[Handlers] Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
             // Filtra per ricerca
-            channels = cachedData.channels.filter(channel =>
-                channel.name.toLowerCase().includes(search.toLowerCase())
-            );
-            console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
+            const normalizedSearch = normalizeChannelName(search);
+            channels = cachedData.channels.filter(channel => {
+                const normalizedName = normalizeChannelName(channel.name);
+                return normalizedName.includes(normalizedSearch);
+            });
+            console.log(`[Handlers] Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
             channels = cachedData.channels;
-            console.log(`Caricati tutti i canali: ${channels.length}`);
+            console.log(`[Handlers] Caricati tutti i canali: ${channels.length}`);
         }
 
         // Ordinamento canali
@@ -87,9 +102,8 @@ async function catalogHandler({ type, id, extra }) {
                 background: channel.background,
                 logo: channel.logo,
                 description: channel.description,
-                genre: channel.genre, // Manteniamo l'array dei generi originale
+                genre: channel.genre,
                 posterShape: channel.posterShape,
-                runtime: channel.runtime,
                 releaseInfo: channel.releaseInfo,
                 behaviorHints: channel.behaviorHints
             };
@@ -101,10 +115,10 @@ async function catalogHandler({ type, id, extra }) {
         // Sempre includi i generi nella risposta
         const response = {
             metas,
-            genres: cachedData.genres // Usa i generi dalla cache
+            genres: cachedData.genres
         };
 
-        console.log('Risposta catalogo:', {
+        console.log('[Handlers] Risposta catalogo:', {
             numChannels: metas.length,
             hasGenres: true,
             numGenres: response.genres.length,
@@ -114,31 +128,43 @@ async function catalogHandler({ type, id, extra }) {
         return response;
 
     } catch (error) {
-        console.error('Errore nella gestione del catalogo:', error);
+        console.error('[Handlers] Errore nella gestione del catalogo:', error);
         return { metas: [], genres: [] };
     }
 }
 
 async function streamHandler({ id }) {
     try {
-        console.log('Stream richiesto per id:', id);
+        console.log('[Handlers] Stream richiesto per id:', id);
         const channelName = id.split('|')[1].replace(/_/g, ' ');
-        const channel = CacheManager.getChannel(channelName);
+        console.log('[Handlers] Nome canale estratto:', channelName);
+
+        // Debug: stampa tutti i canali disponibili
+        const allChannels = CacheManager.getCachedData().channels;
+        console.log('[Handlers] Canali disponibili:', allChannels.map(ch => ch.name));
+        
+        // Usa la funzione di normalizzazione per trovare il canale
+        const normalizedSearchName = normalizeChannelName(channelName);
+        const channel = allChannels.find(ch => {
+            const normalizedChannelName = normalizeChannelName(ch.name);
+            console.log(`[Handlers] Confronto: "${normalizedChannelName}" con "${normalizedSearchName}"`);
+            return normalizedChannelName === normalizedSearchName;
+        });
 
         if (!channel) {
-            console.log('Canale non trovato:', channelName);
+            console.log('[Handlers] Canale non trovato:', channelName);
             return { streams: [] };
         }
 
-        console.log('Canale trovato:', channel.name);
+        console.log('[Handlers] Canale trovato:', channel.name);
 
-        // Inizia con lo stream diretto
+        // Crea lo stream di base
         const streams = [{
-            name: channel.name, // Nome del canale
-            title: channel.name, // Titolo del canale
-            url: channel.streamInfo.url, // URL del flusso diretto
+            name: channel.name,
+            title: channel.name,
+            url: channel.streamInfo.url,
             behaviorHints: {
-                notWebReady: false, // Compatibile con più dispositivi
+                notWebReady: false,
                 bingeGroup: "tv"
             }
         }];
@@ -150,8 +176,6 @@ async function streamHandler({ id }) {
                 url: channel.streamInfo.url,
                 headers: channel.streamInfo.headers
             });
-
-            // Aggiungi i flussi proxy alla lista
             streams.push(...proxyStreams);
         }
 
@@ -166,7 +190,6 @@ async function streamHandler({ id }) {
             description: channel.description,
             genre: channel.genre,
             posterShape: channel.posterShape,
-            runtime: channel.runtime,
             releaseInfo: channel.releaseInfo,
             behaviorHints: channel.behaviorHints
         };
@@ -179,7 +202,7 @@ async function streamHandler({ id }) {
 
         return { streams };
     } catch (error) {
-        console.error('Errore nel caricamento dello stream:', error);
+        console.error('[Handlers] Errore nel caricamento dello stream:', error);
         return { 
             streams: [{
                 name: 'Errore',
