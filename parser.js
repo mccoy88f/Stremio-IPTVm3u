@@ -18,6 +18,10 @@ async function parsePlaylist(url) {
         // Estrai i campi tvg-name e tvg-chno correttamente
         const tvgName = item.tvgName || item.name || null; // Usa il nome del canale come fallback
         const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null; // Estrai tvg-chno correttamente
+        const chnoNumber = tvgChno ? parseInt(tvgChno, 10) : null; // Converti in numero
+
+        // Log di debug per verificare i valori parsati
+        console.log('Parsing channel:', item.name, 'tvg-chno:', tvgChno, 'Parsed chno:', chnoNumber);
 
         return {
             name: item.name || '',
@@ -26,7 +30,7 @@ async function parsePlaylist(url) {
                 id: item.tvgId || null,
                 name: tvgName, // Usa il valore estratto
                 logo: item.tvgLogo || null,
-                chno: tvgChno // Usa il valore estratto
+                chno: chnoNumber // Usa il valore convertito in numero
             },
             genres: [groupTitle],
             headers: {
