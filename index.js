@@ -157,10 +157,10 @@ builder.defineCatalogHandler(async (args) => {
                     id: 'tv' + channelName,
                     type: 'tv',
                     name: channelName,
-                    poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
+                    poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png', // Logo del canale
                     background: tvgLogo || icon,
                     logo: tvgLogo || icon,
-                    description: description || baseDescription,
+                    description: description || baseDescription, // Descrizione del canale
                     genres: [groupTitle || 'Altri'],
                     posterShape: 'square',
                     streams: [], // Indica che il contenuto ha degli stream
