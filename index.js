@@ -27,8 +27,8 @@ async function initializeAddon() {
 
     console.log('Opzioni dei generi create:', JSON.stringify(genreOptions, null, 2));
 
-    // Creiamo il builder con tutte le opzioni necessarie
-    const builder = new addonBuilder({
+    // Preparazione del manifest
+    const manifest = {
         id: config.manifest.id,
         version: config.manifest.version,
         name: config.manifest.name,
@@ -50,9 +50,22 @@ async function initializeAddon() {
                 isRequired: false
             }]
         }]
-    });
+    };
 
-    console.log('Manifest creato:', JSON.stringify(builder.manifest, null, 2));
+    console.log('Manifest preparato:', JSON.stringify(manifest, null, 2));
+
+    // Creiamo il builder
+    const builder = new addonBuilder(manifest);
+
+    // Verifica il manifest creato
+    if (!builder || !builder.manifest) {
+        console.error('Builder o manifest non valido dopo la creazione');
+        console.log('Builder:', typeof builder, builder);
+        console.log('Builder manifest:', builder?.manifest);
+        throw new Error('Inizializzazione del builder fallita');
+    }
+
+    console.log('Manifest finale nel builder:', JSON.stringify(builder.manifest, null, 2));
 
     // Definisci gli handler
     builder.defineCatalogHandler(args => catalogHandler(args, builder));
@@ -70,6 +83,17 @@ async function startServer() {
             throw new Error('Builder non inizializzato correttamente');
         }
 
+        // Verifica finale del builder prima di procedere
+        if (!builder.manifest || !builder.manifest.catalogs) {
+            console.error('Manifest non valido prima dell\'avvio del server');
+            console.log('Manifest stato:', {
+                hasManifest: !!builder.manifest,
+                hasCatalogs: !!builder.manifest?.catalogs,
+                catalogsLength: builder.manifest?.catalogs?.length
+            });
+            throw new Error('Manifest non valido');
+        }
+
         // Aggiorna la cache all'avvio
         await updateCache(builder);
         console.log('Cache aggiornata con successo all\'avvio.');
@@ -82,7 +106,10 @@ async function startServer() {
         }
 
         // Avvia il server HTTP
-        serveHTTP(builder.getInterface(), { port: config.port });
+        const serverInterface = builder.getInterface();
+        console.log('Interface generata:', serverInterface);
+        
+        serveHTTP(serverInterface, { port: config.port });
         console.log(`Server HTTP avviato sulla porta ${config.port}`);
     } catch (error) {
         console.error('Errore durante l\'avvio del server:', error);
