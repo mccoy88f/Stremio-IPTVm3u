@@ -30,14 +30,22 @@ class PlaylistTransformer {
      * Converte un canale nel formato Stremio
      */
     transformChannelToStremio(channel) {
-        const id = `tv|${channel.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        console.log('[PlaylistTransformer] Processando canale:', channel);
+        
+        // Normalizza il nome del canale per l'ID
+        const normalizedName = channel.name
+            .replace(/[^a-zA-Z0-9]/g, '_')
+            .replace(/_+/g, '_');
+        
+        const id = `tv|${normalizedName}`;
+        console.log(`[PlaylistTransformer] ID generato per ${channel.name}: ${id}`);
         
         // Aggiungi il genere alla lista dei generi
         if (channel.group) {
             this.stremioData.genres.add(channel.group);
         }
 
-        return {
+        const transformedChannel = {
             id,
             type: 'tv',
             name: channel.name,
@@ -58,6 +66,9 @@ class PlaylistTransformer {
                 tvg: channel.tvg || {}
             }
         };
+
+        console.log('[PlaylistTransformer] Canale trasformato:', transformedChannel);
+        return transformedChannel;
     }
 
     /**
@@ -92,9 +103,17 @@ class PlaylistTransformer {
                 const groupMatch = metadata.match(/group-title="([^"]+)"/);
                 const group = groupMatch ? groupMatch[1] : 'Altri';
 
-                // Estrai il nome del canale
+                // Estrai il nome del canale e puliscilo
                 const nameParts = metadata.split(',');
-                const name = nameParts[nameParts.length - 1].trim();
+                let name = nameParts[nameParts.length - 1].trim();
+                
+                // Usa il tvg-name se disponibile, altrimenti usa il nome estratto
+                if (tvgData.name) {
+                    name = tvgData.name;
+                }
+                
+                console.log('[PlaylistTransformer] Nome canale estratto:', name);
+                console.log('[PlaylistTransformer] TVG data:', tvgData);
 
                 // Controlla se ci sono opzioni VLC nelle righe successive
                 const { headers, nextIndex } = this.parseVLCOpts(lines, i + 1);
@@ -122,9 +141,9 @@ class PlaylistTransformer {
             channels: this.stremioData.channels
         };
 
-        console.log(`✓ Canali processati: ${result.channels.length}`);
-        console.log(`✓ Generi trovati: ${result.genres.length}`);
-        console.log('Lista generi:', result.genres);
+        console.log(`[PlaylistTransformer] ✓ Canali processati: ${result.channels.length}`);
+        console.log(`[PlaylistTransformer] ✓ Generi trovati: ${result.genres.length}`);
+        console.log('[PlaylistTransformer] Lista generi:', result.genres);
         console.log('=== Fine Parsing Playlist M3U ===\n');
 
         return result;
