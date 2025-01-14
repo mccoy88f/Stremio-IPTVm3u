@@ -12,7 +12,7 @@ async function parsePlaylist(url) {
     const groups = new Set();
 
     const items = playlist.channels.map(item => {
-        const groupTitle = item.groupTitle || 'Altri Canali'; // Usa "Altri Canali" se group-title non è definito
+        const groupTitle = item.groupTitle || 'Altri';
         groups.add(groupTitle);
 
         return {
@@ -24,10 +24,7 @@ async function parsePlaylist(url) {
                 logo: item.tvgLogo || null,
                 chno: item.tvgChno || null
             },
-            group: {
-                title: groupTitle // Usa il group-title come genre
-            },
-            genres: [groupTitle], // Aggiungi il gruppo come genere
+            genres: [groupTitle], // Usa il group-title come genere
             headers: {
                 'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
             }
@@ -40,9 +37,7 @@ async function parsePlaylist(url) {
 // Funzione per scaricare e parsare l'EPG
 async function parseEPG(url) {
     try {
-        const epgResponse = await axios.get(url, {
-            responseType: 'arraybuffer',
-        });
+        const epgResponse = await axios.get(url, { responseType: 'arraybuffer' });
         const decompressed = await new Promise((resolve, reject) => {
             zlib.gunzip(epgResponse.data, (err, result) => {
                 if (err) reject(err);
@@ -61,9 +56,7 @@ function getChannelInfo(epgData, channelName) {
     if (!epgData) {
         return {
             icon: null,
-            description: null,
-            genres: [],
-            programs: [],
+            description: null
         };
     }
 
@@ -71,17 +64,13 @@ function getChannelInfo(epgData, channelName) {
     if (!channelInfo) {
         return {
             icon: null,
-            description: null,
-            genres: [],
-            programs: [],
+            description: null
         };
     }
 
     return {
         icon: channelInfo.icon,
-        description: channelInfo.description,
-        genres: channelInfo.genres || [],
-        programs: channelInfo.programs || [],
+        description: channelInfo.description
     };
 }
 
