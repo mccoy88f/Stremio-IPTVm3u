@@ -1,14 +1,13 @@
 const EventEmitter = require('events');
-const { parsePlaylist } = require('./parser');
-const EPGManager = require('./epg-manager');
+const PlaylistTransformer = require('./playlist-transformer');
 
 class CacheManager extends EventEmitter {
     constructor(config) {
         super();
         this.config = config;
+        this.transformer = new PlaylistTransformer();
         this.cache = {
-            m3u: null,
-            genres: [],
+            stremioData: null,
             lastUpdated: null,
             updateInProgress: false
         };
@@ -26,27 +25,22 @@ class CacheManager extends EventEmitter {
 
             // Check if update is needed
             const needsUpdate = force || !this.cache.lastUpdated || 
-                (Date.now() - this.cache.lastUpdated) > 12 * 60 * 60 * 1000; // 12 hours
+                (Date.now() - this.cache.lastUpdated) > this.config.cacheSettings.updateInterval;
 
             if (!needsUpdate) {
                 console.log('Cache ancora valida, skip aggiornamento');
                 return;
             }
 
-            // Update M3U data
-            const { items, groups } = await parsePlaylist(this.config.M3U_URL);
-            console.log('Playlist M3U caricata:', items.length, 'canali');
+            // Carica e trasforma la playlist
+            console.log('Caricamento playlist da:', this.config.M3U_URL);
+            const stremioData = await this.transformer.loadAndTransform(this.config.M3U_URL);
+            
+            console.log(`Playlist trasformata: ${stremioData.channels.length} canali, ${stremioData.genres.length} generi`);
 
-            // Update EPG if enabled
-            if (this.config.enableEPG && EPGManager.needsUpdate) {
-                console.log('Aggiornamento EPG...');
-                await EPGManager.parseEPG(this.config.EPG_URL);
-            }
-
-            // Update cache
+            // Aggiorna la cache
             this.cache = {
-                m3u: items,
-                genres: groups, // Ora groups contiene già oggetti con name e value
+                stremioData,
                 lastUpdated: Date.now(),
                 updateInProgress: false
             };
@@ -63,34 +57,38 @@ class CacheManager extends EventEmitter {
     }
 
     getCachedData() {
+        if (!this.cache.stremioData) return { channels: [], genres: [] };
+        
         return {
-            m3u: this.cache.m3u ? [...this.cache.m3u] : [],
-            genres: [...this.cache.genres],
-            lastUpdated: this.cache.lastUpdated
+            channels: [...this.cache.stremioData.channels],
+            genres: [...this.cache.stremioData.genres]
         };
     }
 
     getChannel(channelName) {
-        return this.cache.m3u?.find(item => item.name === channelName) || null;
+        return this.cache.stremioData?.channels.find(
+            channel => channel.name === channelName
+        );
     }
 
     getChannelsByGenre(genre) {
-        if (!genre) return this.cache.m3u || [];
-        return this.cache.m3u?.filter(item => item.group === genre) || [];
+        if (!genre) return this.cache.stremioData?.channels || [];
+        return this.cache.stremioData?.channels.filter(
+            channel => channel.genre.includes(genre)
+        ) || [];
     }
 
     searchChannels(query) {
-        if (!query) return this.cache.m3u || [];
+        if (!query) return this.cache.stremioData?.channels || [];
         const searchTerm = query.toLowerCase();
-        return this.cache.m3u?.filter(item => 
-            item.name.toLowerCase().includes(searchTerm)
+        return this.cache.stremioData?.channels.filter(
+            channel => channel.name.toLowerCase().includes(searchTerm)
         ) || [];
     }
 
     isStale() {
         if (!this.cache.lastUpdated) return true;
-        const hours = (Date.now() - this.cache.lastUpdated) / (1000 * 60 * 60);
-        return hours >= 12;
+        return (Date.now() - this.cache.lastUpdated) >= this.config.cacheSettings.updateInterval;
     }
 }
 
