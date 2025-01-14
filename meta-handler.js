@@ -72,7 +72,7 @@ async function metaHandler({ type, id }) {
             logo: channel.logo,
             description: channel.description || '',
             releaseInfo: 'LIVE',
-            runtime: 'LIVE',
+            runtime: null,
             genres: channel.genre,
             posterShape: 'square',
             background: channel.background,
