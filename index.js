@@ -112,7 +112,7 @@ async function startAddon() {
         serveHTTP(addonInterface, { port: config.port })
             .then(({ url }) => {
                 console.log('Addon active on:', url);
-                console.log('Add the following URL to Stremio:', url + 'manifest.json');
+                console.log('Add the following URL to Stremio:', url);
             })
             .catch(error => {
                 console.error('Failed to start server:', error);
