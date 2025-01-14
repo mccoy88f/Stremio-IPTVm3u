@@ -61,10 +61,14 @@ async function updateCache() {
         console.log('Gruppi trovati:', [...groups]);
 
         // Aggiorna le opzioni delle categorie nel manifest
-        builder.manifest.catalogs[0].extra[1].options = [...groups].map(group => ({
-            name: group,
-            value: group
-        }));
+        if (builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+            builder.manifest.catalogs[0].extra[1].options = [...groups].map(group => ({
+                name: group,
+                value: group
+            }));
+        } else {
+            console.error('Catalogs non definiti o vuoti nel manifest.');
+        }
 
         // Gestisci l'EPG se abilitato
         let epgData = null;
