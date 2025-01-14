@@ -1,84 +1,97 @@
-const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
-const cron = require('node-cron');
-const config = require('./config');
-const CacheManager = require('./cache-manager')(config);
+const EventEmitter = require('events');
+const { parsePlaylist } = require('./parser');
 const EPGManager = require('./epg-manager');
-const { catalogHandler, streamHandler } = require('./handlers');
 
-async function createManifest() {
-    // Assicurati che la cache sia inizializzata
-    await CacheManager.updateCache(true);
-    const { genres } = CacheManager.getCachedData();
-    
-    // Crea le opzioni dei generi
-    const genreOptions = genres.map(genre => ({
-        name: String(genre),
-        value: String(genre)
-    }));
+class CacheManager extends EventEmitter {
+    constructor(config) {
+        super();
+        this.config = config;
+        this.cache = {
+            m3u: null,
+            genres: [],
+            lastUpdated: null,
+            updateInProgress: false
+        };
+    }
 
-    // Crea il manifest completo
-    return {
-        ...config.manifest,
-        catalogs: [{
-            type: 'tv',
-            id: 'iptvitalia',
-            name: 'Canali TV Italia',
-            extra: [{
-                name: 'genre',
-                isRequired: false,
-                options: genreOptions
-            }, {
-                name: 'search',
-                isRequired: false
-            }]
-        }]
-    };
-}
-
-async function startServer() {
-    try {
-        // Crea il manifest e il builder
-        const manifest = await createManifest();
-        console.log('Manifest creato:', JSON.stringify(manifest, null, 2));
-        
-        const builder = new addonBuilder(manifest);
-
-        // Definisci gli handler
-        builder.defineCatalogHandler(catalogHandler);
-        builder.defineStreamHandler(streamHandler);
-
-        // Configura gli aggiornamenti periodici
-        CacheManager.on('cacheUpdated', () => {
-            console.log('Cache aggiornata con successo');
-        });
-
-        CacheManager.on('cacheError', (error) => {
-            console.error('Errore nell\'aggiornamento della cache:', error);
-        });
-
-        // Configura il cron job per l'aggiornamento
-        if (config.enableEPG) {
-            cron.schedule('0 */12 * * *', async () => {
-                try {
-                    await CacheManager.updateCache(true);
-                    await EPGManager.parseEPG(config.EPG_URL);
-                } catch (error) {
-                    console.error('Errore nell\'aggiornamento periodico:', error);
-                }
-            });
+    async updateCache(force = false) {
+        if (this.cache.updateInProgress) {
+            console.log('Aggiornamento cache già in corso, skip...');
+            return;
         }
 
-        // Avvia il server HTTP
-        const serverInterface = builder.getInterface();
-        serveHTTP(serverInterface, { port: config.port });
-        
-        console.log(`Server HTTP avviato sulla porta ${config.port}`);
-        console.log(`Addon accessibile all'indirizzo: http://127.0.0.1:${config.port}/manifest.json`);
-    } catch (error) {
-        console.error('Errore durante l\'avvio del server:', error);
-        process.exit(1);
+        try {
+            this.cache.updateInProgress = true;
+            console.log('Aggiornamento della cache in corso...');
+
+            // Check if update is needed
+            const needsUpdate = force || !this.cache.lastUpdated || 
+                (Date.now() - this.cache.lastUpdated) > 12 * 60 * 60 * 1000; // 12 hours
+
+            if (!needsUpdate) {
+                console.log('Cache ancora valida, skip aggiornamento');
+                return;
+            }
+
+            // Update M3U data
+            const { items, groups } = await parsePlaylist(this.config.M3U_URL);
+            console.log('Playlist M3U caricata:', items.length, 'canali');
+
+            // Update EPG if enabled
+            if (this.config.enableEPG && EPGManager.needsUpdate) {
+                console.log('Aggiornamento EPG...');
+                await EPGManager.parseEPG(this.config.EPG_URL);
+            }
+
+            // Update cache
+            this.cache = {
+                m3u: items,
+                genres: groups, // Ora groups contiene già oggetti con name e value
+                lastUpdated: Date.now(),
+                updateInProgress: false
+            };
+
+            this.emit('cacheUpdated', this.cache);
+            console.log('Cache aggiornata con successo');
+
+        } catch (error) {
+            console.error('Errore nell\'aggiornamento della cache:', error);
+            this.cache.updateInProgress = false;
+            this.emit('cacheError', error);
+            throw error;
+        }
+    }
+
+    getCachedData() {
+        return {
+            m3u: this.cache.m3u ? [...this.cache.m3u] : [],
+            genres: [...this.cache.genres],
+            lastUpdated: this.cache.lastUpdated
+        };
+    }
+
+    getChannel(channelName) {
+        return this.cache.m3u?.find(item => item.name === channelName) || null;
+    }
+
+    getChannelsByGenre(genre) {
+        if (!genre) return this.cache.m3u || [];
+        return this.cache.m3u?.filter(item => item.group === genre) || [];
+    }
+
+    searchChannels(query) {
+        if (!query) return this.cache.m3u || [];
+        const searchTerm = query.toLowerCase();
+        return this.cache.m3u?.filter(item => 
+            item.name.toLowerCase().includes(searchTerm)
+        ) || [];
+    }
+
+    isStale() {
+        if (!this.cache.lastUpdated) return true;
+        const hours = (Date.now() - this.cache.lastUpdated) / (1000 * 60 * 60);
+        return hours >= 12;
     }
 }
 
-// Avvia il server
-startServer();
+module.exports = config => new CacheManager(config);
