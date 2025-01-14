@@ -18,7 +18,7 @@ let cachedData = {
     m3u: null,
     epg: null,
     lastUpdated: null,
-    genres: new Set()
+    genres: []
 };
 
 // Funzione per aggiornare la cache
@@ -31,16 +31,16 @@ async function updateCache(builder) {
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
 
         // Aggiorna i generi disponibili
-        cachedData.genres = new Set([...groups]);
+        cachedData.genres = groups;
 
         // Verifica che builder.manifest e builder.manifest.catalogs siano definiti
         if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
             // Aggiorna le opzioni dei generi nel manifest
-            builder.manifest.catalogs[0].extra[0].options = [...cachedData.genres].map(genre => ({
+            builder.manifest.catalogs[0].extra[0].options = cachedData.genres.map(genre => ({
                 name: genre, // Nome visualizzato
                 value: genre // Valore usato per il filtro
             }));
-            console.log('Generi aggiornati nel manifest:', [...cachedData.genres]);
+            console.log('Generi aggiornati nel manifest:', cachedData.genres);
             console.log('Opzioni dei generi:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options, null, 2));
         } else {
             console.error('builder.manifest.catalogs non è definito o non ha elementi');
@@ -163,7 +163,7 @@ async function startServer() {
                         background: item.tvg?.logo || icon,
                         logo: item.tvg?.logo || icon,
                         description: description || `Nome canale: ${channelName}`,
-                        genres: item.genres,
+                        genres: item.genres, // Usa i generi associati al canale
                         posterShape: 'square',
                         streams: [],
                         videos: [],
