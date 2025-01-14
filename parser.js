@@ -27,6 +27,7 @@ async function parsePlaylist(url) {
             group: {
                 title: groupTitle // Usa il group-title come genre
             },
+            genres: [groupTitle], // Aggiungi il gruppo come genere
             headers: {
                 'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
             }
