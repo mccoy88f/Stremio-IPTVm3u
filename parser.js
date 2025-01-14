@@ -8,38 +8,38 @@ async function parsePlaylist(url) {
     const m3uResponse = await axios.get(url);
     const playlist = parseM3U(m3uResponse.data);
 
-    // Estrai i gruppi unici
+    // Estrai i gruppi unici (generi)
     const groups = new Set();
 
     const items = playlist.channels.map(item => {
-        const groupTitle = item.groupTitle || 'Altri';
-        groups.add(groupTitle);
+        const groupTitle = item.groupTitle || 'Altri'; // Usa "Altri" come fallback
+        groups.add(groupTitle); // Aggiungi il genere al set
 
         // Estrai i campi tvg-name e tvg-chno correttamente
-        const tvgName = item.tvgName || item.name || null; // Usa il nome del canale come fallback
-        const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null; // Estrai tvg-chno correttamente
+        const tvgName = item.tvgName || item.name || null;
+        const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null;
         const chnoNumber = tvgChno ? parseInt(tvgChno, 10) : null; // Converti in numero
 
         // Log di debug per verificare i valori parsati
-        console.log('Parsing channel:', item.name, 'tvg-chno:', tvgChno, 'Parsed chno:', chnoNumber);
+        console.log('Parsing channel:', item.name, 'tvg-chno:', tvgChno, 'Parsed chno:', chnoNumber, 'Genre:', groupTitle);
 
         return {
             name: item.name || '',
             url: item.url || '',
             tvg: {
                 id: item.tvgId || null,
-                name: tvgName, // Usa il valore estratto
+                name: tvgName,
                 logo: item.tvgLogo || null,
-                chno: chnoNumber // Usa il valore convertito in numero
+                chno: chnoNumber
             },
-            genres: [groupTitle],
+            genres: [groupTitle], // Associa il canale al genere
             headers: {
                 'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
             }
         };
     });
 
-    return { items, groups };
+    return { items, groups: [...groups] }; // Restituisci i generi come array
 }
 
 // Funzione per scaricare e parsare l'EPG
