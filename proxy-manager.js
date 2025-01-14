@@ -40,6 +40,7 @@ class ProxyManager {
             d: streamUrl
         });
 
+        // Aggiungi l'User-Agent alla richiesta
         if (userAgent) {
             params.append('h_User-Agent', userAgent);
         }
@@ -69,49 +70,30 @@ class ProxyManager {
             }
 
             // Verifica se il proxy è attivo
-            if (await this.checkProxyHealth(proxyUrl)) {
-                const proxyStream = {
-                    name: `${channel.name} (Proxy)`,
-                    title: `${channel.name} (Proxy HLS)`,
-                    url: proxyUrl,
-                    behaviorHints: {
-                        notWebReady: false,
-                        bingeGroup: "tv"
-                    }
-                };
-
-                // Aggiorna la cache
-                this.proxyCache.set(cacheKey, proxyStream);
-                this.lastCheck.set(cacheKey, Date.now());
-
-                streams.push(proxyStream);
-            } else {
-                // Se il proxy non è attivo, aggiungi un flusso di errore
-                streams.push({
-                    name: `${channel.name} (Errore Proxy)`,
-                    title: `${channel.name} (Errore: Proxy non disponibile)`,
-                    url: '',
-                    behaviorHints: {
-                        notWebReady: true,
-                        bingeGroup: "tv",
-                        errorMessage: "Proxy non disponibile. Verifica la configurazione."
-                    }
-                });
+            if (!await this.checkProxyHealth(proxyUrl)) {
+                console.log('Proxy non attivo per:', channel.name);
+                return []; // Non aggiungere il flusso di errore
             }
+
+            const proxyStream = {
+                name: `${channel.name} (Proxy)`,
+                title: `${channel.name} (Proxy HLS)`,
+                url: proxyUrl,
+                behaviorHints: {
+                    notWebReady: false,
+                    bingeGroup: "tv"
+                }
+            };
+
+            // Aggiorna la cache
+            this.proxyCache.set(cacheKey, proxyStream);
+            this.lastCheck.set(cacheKey, Date.now());
+
+            streams.push(proxyStream);
         } catch (error) {
             console.error('Errore proxy per il canale:', channel.name, error.message);
-
-            // Se c'è un errore, aggiungi un flusso di errore
-            streams.push({
-                name: `${channel.name} (Errore Proxy)`,
-                title: `${channel.name} (Errore: Accesso Negato)`,
-                url: '',
-                behaviorHints: {
-                    notWebReady: true,
-                    bingeGroup: "tv",
-                    errorMessage: "Accesso negato. Verifica la tua posizione o usa una VPN."
-                }
-            });
+            console.error('URL richiesto:', proxyUrl);
+            console.error('User-Agent:', userAgent);
         }
 
         return streams;
