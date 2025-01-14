@@ -132,9 +132,9 @@ async function streamHandler({ id }) {
 
         console.log('Canale trovato:', channel.name);
 
-        // Crea stream diretto
+        // Inizia con lo stream diretto
         const streams = [{
-            name: channel.name,
+            name: channel.name, // Nome semplice senza "(Diretto)"
             title: channel.name,
             url: channel.streamInfo.url,
             behaviorHints: {
@@ -151,6 +151,13 @@ async function streamHandler({ id }) {
                     url: channel.streamInfo.url,
                     headers: channel.streamInfo.headers
                 });
+                
+                // Modifica il nome dello stream proxy
+                proxyStreams.forEach(stream => {
+                    stream.name = `${channel.name} (Proxy)`;
+                    stream.title = `${channel.name} (Proxy)`;
+                });
+                
                 streams.push(...proxyStreams);
             } catch (proxyError) {
                 console.error('Errore nella creazione dello stream proxy:', proxyError);
