@@ -98,11 +98,11 @@ async function initializeAddon() {
         description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
         logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
         resources: ['stream', 'catalog'],
-        types: ['tv', 'channel'],
+        types: ['channel'], // Usa 'channel' invece di 'tv' per compatibilità con Stremio
         idPrefixes: ['tv'],
         catalogs: [
             {
-                type: 'tv',
+                type: 'channel',
                 id: 'iptvitalia',
                 name: 'Canali TV Italia',
                 extra: [
@@ -179,8 +179,8 @@ async function startServer() {
 
                     // Meta object con i campi aggiuntivi per lo streaming
                     const meta = {
-                        id: 'tv' + channelName,
-                        type: 'tv',
+                        id: 'tv' + channelName, // ID univoco per il canale
+                        type: 'channel', // Usa 'channel' per i canali live
                         name: channelName,
                         poster: item.tvg?.logo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
                         background: item.tvg?.logo || icon,
@@ -188,10 +188,11 @@ async function startServer() {
                         description: description || `Nome canale: ${channelName}`,
                         genres: item.genres,
                         posterShape: 'square',
-                        streams: [],
-                        videos: [],
-                        runtime: "LIVE",
-                        sortingKey: sortingKey
+                        runtime: "LIVE", // Indica che si tratta di un canale live
+                        releaseInfo: "Live TV", // Informazioni aggiuntive
+                        behaviorHints: {
+                            defaultVideoId: 'tv' + channelName // Collega i metadati agli stream
+                        }
                     };
 
                     return meta;
@@ -230,7 +231,7 @@ async function startServer() {
                 await updateCache(builder);
             }
 
-            const channelName = args.id.replace(/^tv/, '');
+            const channelName = args.id.replace(/^tv/, ''); // Rimuovi il prefisso 'tv' dall'ID
             console.log('Cerco canale con nome:', channelName);
 
             const channel = cachedData.m3u.find(item => item.name === channelName);
