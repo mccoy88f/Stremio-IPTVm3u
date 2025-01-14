@@ -31,7 +31,7 @@ async function updateCache(builder) {
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
 
         // Aggiorna i generi disponibili
-        cachedData.genres = groups;
+        cachedData.genres = [...groups];
 
         // Verifica che builder.manifest e builder.manifest.catalogs siano definiti
         if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
@@ -163,7 +163,7 @@ async function startServer() {
                         background: item.tvg?.logo || icon,
                         logo: item.tvg?.logo || icon,
                         description: description || `Nome canale: ${channelName}`,
-                        genres: item.genres, // Usa i generi associati al canale
+                        genres: item.genres,
                         posterShape: 'square',
                         streams: [],
                         videos: [],
