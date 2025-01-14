@@ -25,7 +25,7 @@ const builder = new addonBuilder({
                 {
                     name: 'genre',
                     isRequired: false,
-                    options: [] // Sarà popolato dinamicamente dai gruppi della playlist
+                    options: [] // I generi verranno aggiunti dinamicamente in base alla playlist
                 },
                 {
                     name: 'search',
@@ -40,7 +40,7 @@ let cachedData = {
     m3u: null,
     epg: null,
     lastUpdated: null,
-    groups: new Set()
+    genres: new Set() // Usiamo un Set per memorizzare i generi unici
 };
 
 // Leggi le configurazioni dalle variabili d'ambiente
@@ -58,17 +58,15 @@ async function updateCache() {
         // Parsa la playlist M3U
         const { items, groups } = await parsePlaylist(M3U_URL);
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
-        console.log('Gruppi trovati:', [...groups]);
 
-        // Verifica che builder.manifest.catalogs sia definito
-        if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
-            builder.manifest.catalogs[0].extra[0].options = [...groups].map(group => ({
-                name: group,
-                value: group
-            }));
-        } else {
-            console.error('builder.manifest.catalogs non è definito o non ha elementi');
-        }
+        // Aggiorna i generi disponibili
+        cachedData.genres = new Set([...groups]);
+
+        // Aggiorna le opzioni dei generi nel manifest
+        builder.manifest.catalogs[0].extra[0].options = [...cachedData.genres].map(genre => ({
+            name: genre,
+            value: genre
+        }));
 
         // Gestisci l'EPG se abilitato
         let epgData = null;
@@ -93,7 +91,7 @@ async function updateCache() {
             m3u: items,
             epg: epgData,
             lastUpdated: Date.now(),
-            groups: groups
+            genres: cachedData.genres
         };
 
         console.log('Cache aggiornata con successo!');
@@ -130,46 +128,30 @@ builder.defineCatalogHandler(async (args) => {
         const filteredChannels = cachedData.m3u
             .filter(item => {
                 const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
-                const matchesGenre = !genre || item.group.title === genre;
+                const matchesGenre = !genre || item.genres.includes(genre);
                 return matchesSearch && matchesGenre;
             })
             .map(item => {
                 const channelName = item.name;
-                const { icon, description, genres, programs } = getChannelInfo(cachedData.epg, channelName);
-
-                // Estrai le informazioni dalla playlist M3U
-                const tvgLogo = item.tvg?.logo || null;
-                const groupTitle = item.group?.title || null;
-                const tvgId = item.tvg?.id || null;
-                const channelNumber = item.tvg?.chno || null;
+                const { icon, description } = getChannelInfo(cachedData.epg, channelName);
 
                 // Crea una chiave di ordinamento basata sul numero del canale
-                const sortingKey = channelNumber ? `${channelNumber}. ${channelName}` : channelName;
-
-                // Crea una descrizione base se l'EPG non è disponibile
-                const baseDescription = [
-                    `Nome canale: ${channelName}`,
-                    tvgId ? `ID canale: ${tvgId}` : null,
-                    channelNumber ? `Numero canale: ${channelNumber}` : null,
-                    groupTitle ? `Gruppo: ${groupTitle}` : null,
-                    `\nQuesta playlist è fornita da: ${M3U_URL}`,
-                    enableEPG ? null : '\nNota: EPG non abilitato'
-                ].filter(Boolean).join('\n');
+                const sortingKey = item.tvg?.chno ? `${item.tvg.chno}. ${channelName}` : channelName;
 
                 // Meta object con i campi aggiuntivi per lo streaming
                 const meta = {
                     id: 'tv' + channelName,
                     type: 'tv',
                     name: channelName,
-                    poster: tvgLogo || icon || 'https://www.stremio.com/website/stremio-white-small.png', // Logo del canale
-                    background: tvgLogo || icon,
-                    logo: tvgLogo || icon,
-                    description: description || baseDescription, // Descrizione del canale
-                    genres: item.genres || [groupTitle || 'Altri'], // Usa i generi dalla playlist o il gruppo come fallback
+                    poster: item.tvg?.logo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
+                    background: item.tvg?.logo || icon,
+                    logo: item.tvg?.logo || icon,
+                    description: description || `Nome canale: ${channelName}`,
+                    genres: item.genres,
                     posterShape: 'square',
-                    streams: [], // Indica che il contenuto ha degli stream
-                    videos: [], // Indica che è un contenuto riproducibile
-                    runtime: "LIVE", // Indica che è un contenuto live
+                    streams: [],
+                    videos: [],
+                    runtime: "LIVE",
                     sortingKey: sortingKey
                 };
 
@@ -182,10 +164,10 @@ builder.defineCatalogHandler(async (args) => {
                 const match = key.match(/^(\d+)\./);
                 return match ? parseInt(match[1]) : Number.MAX_SAFE_INTEGER;
             };
-            
+
             const numA = getChannelNumber(a.sortingKey);
             const numB = getChannelNumber(b.sortingKey);
-            
+
             if (numA !== numB) {
                 return numA - numB;
             }
@@ -204,7 +186,7 @@ builder.defineCatalogHandler(async (args) => {
 builder.defineStreamHandler(async (args) => {
     try {
         console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
-        
+
         if (!cachedData.m3u || !cachedData.epg) {
             await updateCache();
         }
@@ -213,7 +195,7 @@ builder.defineStreamHandler(async (args) => {
         console.log('Cerco canale con nome:', channelName);
 
         const channel = cachedData.m3u.find(item => item.name === channelName);
-        
+
         if (!channel) {
             console.log('Canale non trovato. Nome cercato:', channelName);
             return Promise.resolve({ streams: [] });
@@ -235,18 +217,13 @@ builder.defineStreamHandler(async (args) => {
 
         // Stream proxy se configurato
         if (PROXY_URL && PROXY_PASSWORD) {
-            // Costruisci l'URL del proxy con i parametri richiesti
             const proxyStreamUrl = `${PROXY_URL}/proxy/hls/manifest.m3u8?api_password=${PROXY_PASSWORD}&d=${encodeURIComponent(channel.url)}&h_User-Agent=${encodeURIComponent(userAgent)}`;
             console.log('Tentativo di accesso al proxy stream:', proxyStreamUrl);
 
             try {
-                const response = await axios.get(proxyStreamUrl, { 
-                    timeout: 5000,
-                    validateStatus: false
-                });
-                
+                const response = await axios.get(proxyStreamUrl, { timeout: 5000, validateStatus: false });
                 console.log('Risposta dal proxy:', response.status);
-                
+
                 if (response.status === 200 || response.status === 302) {
                     console.log('Proxy stream disponibile, aggiungo alla lista');
                     streams.push({
@@ -280,7 +257,6 @@ builder.defineStreamHandler(async (args) => {
 
         console.log('Stream generati:', JSON.stringify(streams, null, 2));
         return Promise.resolve({ streams });
-
     } catch (error) {
         console.error('Errore nel caricamento dello stream:', error);
         return Promise.resolve({ streams: [] });
