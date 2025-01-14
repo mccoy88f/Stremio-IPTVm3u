@@ -15,17 +15,17 @@ module.exports = {
     
     // Cache settings
     cacheSettings: {
-        updateInterval: 12 * 60 * 60 * 1000, // 12 hours in milliseconds
-        maxAge: 24 * 60 * 60 * 1000,        // 24 hours in milliseconds
+        updateInterval: 12 * 60 * 60 * 1000,
+        maxAge: 24 * 60 * 60 * 1000,
         retryAttempts: 3,
-        retryDelay: 5000                    // 5 seconds
+        retryDelay: 5000
     },
     
     // EPG settings
     epgSettings: {
         maxProgramsPerChannel: 50,
-        updateInterval: 12 * 60 * 60 * 1000, // 12 hours
-        cacheExpiry: 24 * 60 * 60 * 1000     // 24 hours
+        updateInterval: 12 * 60 * 60 * 1000,
+        cacheExpiry: 24 * 60 * 60 * 1000
     },
     
     // Manifest configuration
@@ -41,18 +41,10 @@ module.exports = {
         catalogs: [
             {
                 type: 'tv',
-                id: 'iptv_channels',
+                id: 'iptv_category',
                 name: 'IPTV Italia',
-                extra: [
-                    {
-                        name: 'search',
-                        isRequired: false
-                    },
-                    {
-                        name: 'genre',
-                        isRequired: false
-                    }
-                ]
+                extraSupported: ['search', 'genre', 'skip'],
+                extraRequired: []
             }
         ]
     }
