@@ -4,7 +4,7 @@ const EPGManager = require('./epg-manager');
 const ProxyManager = new (require('./proxy-manager'))(config);
 
 /**
- * Arricchisce i metadati del canale con informazioni EPG se disponibili
+ * Arricchisce i metadati del canale con informazioni EPG
  */
 function enrichWithEPG(meta, channelId) {
     if (!config.enableEPG) return meta;
@@ -44,16 +44,22 @@ async function catalogHandler({ type, id, extra }) {
         const ITEMS_PER_PAGE = 100;
 
         // Log dei generi disponibili per debug
-        console.log('Generi disponibili:', cachedData.genres);
+        console.log('Generi disponibili:', config.manifest.catalogs[0].extra[0].options);
         console.log('Genere richiesto:', genre);
 
         // Filtraggio canali
         let channels = [];
         if (genre) {
-            channels = CacheManager.getChannelsByGenre(genre);
+            // Filtra per genere specifico
+            channels = cachedData.channels.filter(channel => 
+                channel.genre && channel.genre.includes(genre)
+            );
             console.log(`Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
-            channels = CacheManager.searchChannels(search);
+            // Filtra per ricerca
+            channels = cachedData.channels.filter(channel =>
+                channel.name.toLowerCase().includes(search.toLowerCase())
+            );
             console.log(`Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
             channels = cachedData.channels;
@@ -71,23 +77,38 @@ async function catalogHandler({ type, id, extra }) {
         const startIdx = parseInt(skip) || 0;
         const paginatedChannels = channels.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
-        // Arricchisci con dati EPG
-        const metas = paginatedChannels.map(channel => 
-            enrichWithEPG({ ...channel }, channel.streamInfo.tvg?.id)
-        );
+        // Crea i meta object per ogni canale
+        const metas = paginatedChannels.map(channel => {
+            const meta = {
+                id: channel.id,
+                type: 'tv',
+                name: channel.name,
+                poster: channel.poster,
+                background: channel.background,
+                logo: channel.logo,
+                description: channel.description,
+                genre: channel.genre, // Array di generi
+                posterShape: channel.posterShape,
+                runtime: channel.runtime,
+                releaseInfo: channel.releaseInfo,
+                behaviorHints: channel.behaviorHints
+            };
+            
+            // Aggiungi informazioni EPG se disponibili
+            return enrichWithEPG(meta, channel.streamInfo.tvg?.id);
+        });
 
-        // Costruisci la risposta
-        const response = { metas };
-        
-        // Aggiungi i generi solo quando appropriato
-        if (!search) {
-            response.genres = cachedData.genres;
-        }
+        const response = {
+            metas,
+            // Includi sempre i generi disponibili nella risposta
+            genres: config.manifest.catalogs[0].extra[0].options
+        };
 
         console.log('Risposta catalogo:', {
             numChannels: metas.length,
-            hasGenres: !!response.genres,
-            numGenres: response.genres?.length || 0
+            hasGenres: true,
+            numGenres: response.genres.length,
+            genres: response.genres
         });
 
         return response;
@@ -124,17 +145,38 @@ async function streamHandler({ id }) {
 
         // Aggiungi stream proxy se configurato
         if (config.PROXY_URL) {
-            const proxyStreams = await ProxyManager.getProxyStreams({
-                name: channel.name,
-                url: channel.streamInfo.url,
-                headers: channel.streamInfo.headers
-            });
-            streams.push(...proxyStreams);
+            try {
+                const proxyStreams = await ProxyManager.getProxyStreams({
+                    name: channel.name,
+                    url: channel.streamInfo.url,
+                    headers: channel.streamInfo.headers
+                });
+                streams.push(...proxyStreams);
+            } catch (proxyError) {
+                console.error('Errore nella creazione dello stream proxy:', proxyError);
+            }
         }
 
         // Aggiungi metadati a tutti gli stream
+        const meta = {
+            id: channel.id,
+            type: 'tv',
+            name: channel.name,
+            poster: channel.poster,
+            background: channel.background,
+            logo: channel.logo,
+            description: channel.description,
+            genre: channel.genre,
+            posterShape: channel.posterShape,
+            runtime: channel.runtime,
+            releaseInfo: channel.releaseInfo,
+            behaviorHints: channel.behaviorHints
+        };
+
+        // Arricchisci con EPG e aggiungi ai stream
+        const enrichedMeta = enrichWithEPG(meta, channel.streamInfo.tvg?.id);
         streams.forEach(stream => {
-            stream.meta = enrichWithEPG({ ...channel }, channel.streamInfo.tvg?.id);
+            stream.meta = enrichedMeta;
         });
 
         return { streams };
