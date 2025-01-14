@@ -9,7 +9,7 @@ const port = process.env.PORT || 10000;
 // Configura il manifest dell'add-on
 const builder = new addonBuilder({
     id: 'org.mccoy88f.iptvaddon',
-    version: '1.0.0',
+    version: '1.1.0',
     name: 'IPTV Italia Addon',
     description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
     logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
