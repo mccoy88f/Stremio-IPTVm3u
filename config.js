@@ -31,11 +31,11 @@ const config = {
     // Manifest configuration
     manifest: {
         id: 'org.mccoy88f.iptvaddon',
-        version: '1.1.0',
+        version: '1.2.0',
         name: 'IPTV Italia Addon',
         description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
         logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
-        resources: ['stream', 'catalog'],
+        resources: ['stream', 'catalog', 'meta'],
         types: ['tv'],
         idPrefixes: ['tv'],
         catalogs: [
