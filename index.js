@@ -152,7 +152,7 @@ async function startServer() {
                     const { icon, description } = getChannelInfo(cachedData.epg, channelName);
 
                     // Crea una chiave di ordinamento basata sul numero del canale
-                    const sortingKey = item.tvg?.chno ? `${item.tvg.chno}. ${channelName}` : channelName;
+                    const sortingKey = item.tvg?.chno ? `${item.tvg.chno}. ${channelName}` : `${Number.MAX_SAFE_INTEGER}. ${channelName}`;
 
                     // Meta object con i campi aggiuntivi per lo streaming
                     const meta = {
@@ -178,7 +178,7 @@ async function startServer() {
             filteredChannels.sort((a, b) => {
                 const getChannelNumber = (key) => {
                     const match = key.match(/^(\d+)\./);
-                    return match ? parseInt(match[1]) : Number.MAX_SAFE_INTEGER;
+                    return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
                 };
 
                 const numA = getChannelNumber(a.sortingKey);
