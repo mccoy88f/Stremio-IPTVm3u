@@ -29,21 +29,27 @@ async function updateCache(builder) {
         // Parsa la playlist M3U
         const { items, groups } = await parsePlaylist(M3U_URL);
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
+        console.log('Generi trovati:', groups);
 
-        // Aggiorna i generi disponibili
-        cachedData.genres = [...groups];
-
-        // Verifica che builder.manifest e builder.manifest.catalogs siano definiti
-        if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
-            // Aggiorna le opzioni dei generi nel manifest
-            builder.manifest.catalogs[0].extra[0].options = cachedData.genres.map(genre => ({
-                name: genre, // Nome visualizzato
-                value: genre // Valore usato per il filtro
+        // Verifica che builder e manifest siano definiti correttamente
+        if (builder && builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+            const genreOptions = groups.map(genre => ({
+                name: genre,
+                value: genre
             }));
-            console.log('Generi aggiornati nel manifest:', cachedData.genres);
-            console.log('Opzioni dei generi:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options, null, 2));
+            
+            // Aggiorna le opzioni dei generi nel manifest
+            builder.manifest.catalogs[0].extra[0].options = genreOptions;
+            
+            console.log('Generi aggiornati nel manifest:', genreOptions);
         } else {
-            console.error('builder.manifest.catalogs non è definito o non ha elementi');
+            console.error('Errore: Manifest non accessibile per aggiornamento generi');
+            console.log('Builder state:', {
+                hasBuilder: !!builder,
+                hasManifest: !!builder?.manifest,
+                hasCatalogs: !!builder?.manifest?.catalogs,
+                catalogsLength: builder?.manifest?.catalogs?.length
+            });
         }
 
         // Gestisci l'EPG se abilitato
@@ -69,7 +75,7 @@ async function updateCache(builder) {
             m3u: items,
             epg: epgData,
             lastUpdated: Date.now(),
-            genres: cachedData.genres
+            genres: groups
         };
 
         console.log('Cache aggiornata con successo!');
@@ -84,10 +90,10 @@ async function initializeAddon() {
     let groups = [];
     try {
         const { groups: extractedGroups } = await parsePlaylist(M3U_URL);
-        groups = extractedGroups;
+        groups = Array.from(extractedGroups);
+        console.log('Generi estratti inizialmente:', groups);
     } catch (error) {
         console.error('Errore nel caricamento della playlist M3U:', error);
-        // Usa un array vuoto se il parsing fallisce
         groups = [];
     }
 
@@ -98,60 +104,34 @@ async function initializeAddon() {
         description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
         logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
         resources: ['stream', 'catalog'],
-        types: ['tv'], // Usa 'tv' per i canali live
+        types: ['tv'],
         idPrefixes: ['tv'],
-        catalogs: [
-            {
-                type: 'tv', // Usa 'tv' per i canali live
-                id: 'iptvitalia',
-                name: 'Canali TV Italia',
-                extra: [
-                    {
-                        name: 'genre',
-                        isRequired: false,
-                        options: groups.map(genre => ({
-                            name: genre, // Nome visualizzato
-                            value: genre // Valore usato per il filtro
-                        }))
-                    },
-                    {
-                        name: 'search',
-                        isRequired: false
-                    }
-                ]
-            }
-        ]
+        catalogs: [{
+            type: 'tv',
+            id: 'iptvitalia',
+            name: 'Canali TV Italia',
+            extra: [{
+                name: 'genre',
+                isRequired: false,
+                options: groups.map(genre => ({
+                    name: genre,
+                    value: genre
+                }))
+            }, {
+                name: 'search',
+                isRequired: false
+            }]
+        }]
     });
 
-    // Debug: Verifica i generi passati al manifest
-    console.log('Generi estratti:', groups);
-
-    // Verifica che il manifest sia stato inizializzato correttamente
-    if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
-        console.log('Opzioni dei generi:', builder.manifest.catalogs[0].extra[0].options);
+    // Debug: Verifica il manifest
+    if (!builder.manifest || !builder.manifest.catalogs || !builder.manifest.catalogs.length) {
+        console.error('Errore: Manifest non inizializzato correttamente');
+        console.log('Builder:', builder);
+        console.log('Manifest:', builder.manifest);
     } else {
-        console.error('Il manifest non è stato inizializzato correttamente.');
-    }
-
-    return builder;
-}
-
-// Avvia il server
-async function startServer() {
-    const builder = await initializeAddon();
-
-    // Aggiorna la cache all'avvio
-    updateCache(builder).then(() => {
-        console.log('Cache aggiornata con successo all\'avvio.');
-    }).catch((err) => {
-        console.error('Errore durante l\'aggiornamento della cache all\'avvio:', err);
-    });
-
-    // Aggiorna la cache ogni giorno alle 3:00 del mattino (solo se l'EPG è abilitato)
-    if (enableEPG) {
-        cron.schedule('0 3 * * *', () => {
-            updateCache(builder);
-        });
+        console.log('Manifest inizializzato correttamente');
+        console.log('Generi nel manifest:', builder.manifest.catalogs[0].extra[0].options);
     }
 
     // Handler per la ricerca dei canali
@@ -164,7 +144,18 @@ async function startServer() {
                 await updateCache(builder);
             }
 
-            const filteredChannels = cachedData.m3u
+            // Prima ordiniamo i canali nella cache
+            const sortedChannels = [...cachedData.m3u].sort((a, b) => {
+                const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
+                const numB = b.tvg?.chno || Number.MAX_SAFE_INTEGER;
+                if (numA !== numB) {
+                    return numA - numB;
+                }
+                return a.name.localeCompare(b.name);
+            });
+
+            // Poi applichiamo il filtro e la trasformazione
+            const filteredChannels = sortedChannels
                 .filter(item => {
                     const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
                     const matchesGenre = !genre || item.genres.includes(genre);
@@ -174,13 +165,9 @@ async function startServer() {
                     const channelName = item.name;
                     const { icon, description } = getChannelInfo(cachedData.epg, channelName);
 
-                    // Crea una chiave di ordinamento basata sul numero del canale
-                    const sortingKey = item.tvg?.chno ? `${item.tvg.chno}. ${channelName}` : `${Number.MAX_SAFE_INTEGER}. ${channelName}`;
-
-                    // Meta object con i campi aggiuntivi per lo streaming
-                    const meta = {
-                        id: 'tv' + channelName, // ID univoco per il canale
-                        type: 'tv', // Usa 'tv' per i canali live
+                    return {
+                        id: 'tv' + channelName,
+                        type: 'tv',
                         name: channelName,
                         poster: item.tvg?.logo || icon || 'https://www.stremio.com/website/stremio-white-small.png',
                         background: item.tvg?.logo || icon,
@@ -188,32 +175,13 @@ async function startServer() {
                         description: description || `Nome canale: ${channelName}`,
                         genres: item.genres,
                         posterShape: 'square',
-                        runtime: "LIVE", // Indica che si tratta di un canale live
-                        releaseInfo: "Live TV", // Informazioni aggiuntive
+                        runtime: "LIVE",
+                        releaseInfo: "Live TV",
                         behaviorHints: {
-                            defaultVideoId: 'tv' + channelName // Collega i metadati agli stream
+                            defaultVideoId: 'tv' + channelName
                         }
                     };
-
-                    return meta;
                 });
-
-            // Ordina i canali per numero
-            filteredChannels.sort((a, b) => {
-                const getChannelNumber = (key) => {
-                    if (!key) return Number.MAX_SAFE_INTEGER; // Se sortingKey non è definito
-                    const match = key.match(/^(\d+)\./);
-                    return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
-                };
-
-                const numA = getChannelNumber(a.sortingKey);
-                const numB = getChannelNumber(b.sortingKey);
-
-                if (numA !== numB) {
-                    return numA - numB;
-                }
-                return a.name.localeCompare(b.name);
-            });
 
             console.log(`Trovati ${filteredChannels.length} canali`);
             return Promise.resolve({ metas: filteredChannels });
@@ -232,7 +200,7 @@ async function startServer() {
                 await updateCache(builder);
             }
 
-            const channelName = args.id.replace(/^tv/, ''); // Rimuovi il prefisso 'tv' dall'ID
+            const channelName = args.id.replace(/^tv/, '');
             console.log('Cerco canale con nome:', channelName);
 
             const channel = cachedData.m3u.find(item => item.name === channelName);
@@ -303,6 +271,27 @@ async function startServer() {
             return Promise.resolve({ streams: [] });
         }
     });
+
+    return builder;
+}
+
+// Avvia il server
+async function startServer() {
+    const builder = await initializeAddon();
+
+    // Aggiorna la cache all'avvio
+    updateCache(builder).then(() => {
+        console.log('Cache aggiornata con successo all\'avvio.');
+    }).catch((err) => {
+        console.error('Errore durante l\'aggiornamento della cache all\'avvio:', err);
+    });
+
+    // Aggiorna la cache ogni giorno alle 3:00 del mattino (solo se l'EPG è abilitato)
+    if (enableEPG) {
+        cron.schedule('0 3 * * *', () => {
+            updateCache(builder);
+        });
+    }
 
     // Avvia il server HTTP
     serveHTTP(builder.getInterface(), { port: port });
