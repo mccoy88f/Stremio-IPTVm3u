@@ -10,7 +10,7 @@ let cachedData = {
 };
 
 // Funzione per aggiornare la cache
-async function updateCache(builder) {
+async function updateCache() {
     try {
         console.log('Aggiornamento della cache in corso...');
 
@@ -18,27 +18,6 @@ async function updateCache(builder) {
         const { items, groups } = await parsePlaylist(config.M3U_URL);
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
         console.log('Generi trovati:', groups);
-
-        // Verifica che builder e manifest siano definiti correttamente
-        if (builder?.manifest?.catalogs?.[0]?.extra?.[0]) {
-            const genreOptions = groups.map(genre => ({
-                name: String(genre),
-                value: String(genre)
-            }));
-            
-            // Aggiorna le opzioni dei generi nel manifest
-            builder.manifest.catalogs[0].extra[0].options = genreOptions;
-            
-            console.log('Generi aggiornati nel manifest:', JSON.stringify(genreOptions));
-        } else {
-            console.error('Errore: Manifest non accessibile per aggiornamento generi');
-            console.log('Builder state:', {
-                hasBuilder: !!builder,
-                hasManifest: !!builder?.manifest,
-                hasCatalogs: !!builder?.manifest?.catalogs,
-                catalogsLength: builder?.manifest?.catalogs?.length
-            });
-        }
 
         // Gestisci l'EPG se abilitato
         let epgData = null;
