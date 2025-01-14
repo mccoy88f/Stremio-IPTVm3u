@@ -20,16 +20,16 @@ async function updateCache(builder) {
         console.log('Generi trovati:', groups);
 
         // Verifica che builder e manifest siano definiti correttamente
-        if (builder && builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+        if (builder?.manifest?.catalogs?.[0]?.extra?.[0]) {
             const genreOptions = groups.map(genre => ({
-                name: genre,
-                value: genre
+                name: String(genre),
+                value: String(genre)
             }));
             
             // Aggiorna le opzioni dei generi nel manifest
             builder.manifest.catalogs[0].extra[0].options = genreOptions;
             
-            console.log('Generi aggiornati nel manifest:', genreOptions);
+            console.log('Generi aggiornati nel manifest:', JSON.stringify(genreOptions));
         } else {
             console.error('Errore: Manifest non accessibile per aggiornamento generi');
             console.log('Builder state:', {
