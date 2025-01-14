@@ -1,33 +1,126 @@
-// index.js
 const { addonBuilder } = require('stremio-addon-sdk');
-const config = require('./config');
+const PlaylistTransformer = require('./playlist-transformer');
 const { catalogHandler, streamHandler } = require('./handlers');
 
-// Create the addon
-const builder = new addonBuilder(config.manifest);
+async function generateConfig() {
+    try {
+        console.log('\n=== Generazione Configurazione Iniziale ===');
+        
+        // Crea un'istanza del transformer
+        const transformer = new PlaylistTransformer();
+        
+        // Carica e trasforma la playlist
+        const playlistUrl = process.env.M3U_URL || 'https://raw.githubusercontent.com/dtankdempse/daddylive-m3u/refs/heads/main/all_channels/playlist.m3u8';
+        console.log('Caricamento playlist da:', playlistUrl);
+        
+        const data = await transformer.loadAndTransform(playlistUrl);
+        console.log(`Trovati ${data.genres.length} generi`);
 
-// Define routes
-builder.defineStreamHandler(streamHandler);
-builder.defineCatalogHandler(catalogHandler);
+        // Crea la configurazione base
+        const config = {
+            port: process.env.PORT || 10000,
+            M3U_URL: playlistUrl,
+            EPG_URL: 'https://www.epgitalia.tv/gzip',
+            enableEPG: process.env.ENABLE_EPG === 'yes',
+            PROXY_URL: process.env.PROXY_URL || null,
+            PROXY_PASSWORD: process.env.PROXY_PASSWORD || null,
+            
+            cacheSettings: {
+                updateInterval: 12 * 60 * 60 * 1000,
+                maxAge: 24 * 60 * 60 * 1000,
+                retryAttempts: 3,
+                retryDelay: 5000
+            },
+            
+            epgSettings: {
+                maxProgramsPerChannel: 50,
+                updateInterval: 12 * 60 * 60 * 1000,
+                cacheExpiry: 24 * 60 * 60 * 1000
+            },
+            
+            manifest: {
+                id: 'org.mccoy88f.iptvaddon',
+                version: '1.1.0',
+                name: 'IPTV Italia Addon',
+                description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
+                logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
+                resources: ['stream', 'catalog'],
+                types: ['tv'],
+                idPrefixes: ['tv'],
+                catalogs: [
+                    {
+                        type: 'tv',
+                        id: 'iptv_category',
+                        name: 'IPTV Italia',
+                        extra: [
+                            {
+                                name: 'genre',
+                                isRequired: false,
+                                options: data.genres
+                            },
+                            {
+                                name: 'search',
+                                isRequired: false
+                            },
+                            {
+                                name: 'skip',
+                                isRequired: false
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
 
-// Initialize the cache manager
-const CacheManager = require('./cache-manager')(config);
+        console.log('Configurazione generata con i seguenti generi:');
+        console.log(data.genres.join(', '));
+        console.log('\n=== Fine Generazione Configurazione ===\n');
 
-// Update cache on startup
-CacheManager.updateCache(true).catch(error => {
-    console.error('Error updating cache on startup:', error);
-});
+        return config;
+    } catch (error) {
+        console.error('Errore durante la generazione della configurazione:', error);
+        throw error;
+    }
+}
 
-// Create and start the server
-const addonInterface = builder.getInterface();
-const serveHTTP = require('stremio-addon-sdk/src/serveHTTP');
+async function startAddon() {
+    try {
+        // Genera la configurazione dinamicamente
+        const config = await generateConfig();
 
-serveHTTP(addonInterface, { port: config.port })
-    .then(({ url }) => {
-        console.log('Addon active on:', url);
-        console.log('Add the following URL to Stremio:', url + 'manifest.json');
-    })
-    .catch(error => {
-        console.error('Failed to start server:', error);
+        // Create the addon
+        const builder = new addonBuilder(config.manifest);
+
+        // Define routes
+        builder.defineStreamHandler(streamHandler);
+        builder.defineCatalogHandler(catalogHandler);
+
+        // Initialize the cache manager
+        const CacheManager = require('./cache-manager')(config);
+
+        // Update cache on startup
+        await CacheManager.updateCache(true).catch(error => {
+            console.error('Error updating cache on startup:', error);
+        });
+
+        // Create and start the server
+        const addonInterface = builder.getInterface();
+        const serveHTTP = require('stremio-addon-sdk/src/serveHTTP');
+
+        serveHTTP(addonInterface, { port: config.port })
+            .then(({ url }) => {
+                console.log('Addon active on:', url);
+                console.log('Add the following URL to Stremio:', url + 'manifest.json');
+            })
+            .catch(error => {
+                console.error('Failed to start server:', error);
+                process.exit(1);
+            });
+    } catch (error) {
+        console.error('Failed to start addon:', error);
         process.exit(1);
-    });
+    }
+}
+
+// Start the addon
+startAddon();
