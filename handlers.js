@@ -1,22 +1,35 @@
-const axios = require('axios');
-const { getChannelInfo } = require('./parser');
-const { getCachedData } = require('./cache');
 const config = require('./config');
+const CacheManager = require('./cache-manager')(config);
+const EPGManager = require('./epg-manager');
+const ProxyManager = new (require('./proxy-manager'))(config);
 
 // Funzione di utilità per creare l'oggetto meta del canale
-function createChannelMeta(item, epgInfo = {}) {
+function createChannelMeta(item) {
+    const epgData = EPGManager.getCurrentProgram(item.tvg?.id);
+    const upcoming = EPGManager.getUpcomingPrograms(item.tvg?.id, 3);
+    
+    let description = `Canale: ${item.name}\n`;
+    if (epgData) {
+        description += `\nIn onda: ${epgData.title}\n${epgData.description || ''}`;
+        if (upcoming.length > 0) {
+            description += '\n\nProssimi programmi:\n' + upcoming
+                .map(p => `- ${p.title} (${p.start.toLocaleTimeString()})`)
+                .join('\n');
+        }
+    }
+
     return {
         id: `tv${item.name}`,
         type: 'tv',
         name: item.name,
-        poster: item.tvg?.logo || epgInfo.icon || 'https://www.stremio.com/website/stremio-white-small.png',
-        background: item.tvg?.logo || epgInfo.icon,
-        logo: item.tvg?.logo || epgInfo.icon,
-        description: epgInfo.description || `Canale: ${item.name}`,
+        poster: item.tvg?.logo || 'https://www.stremio.com/website/stremio-white-small.png',
+        background: item.tvg?.logo,
+        logo: item.tvg?.logo,
+        description: description,
         genres: item.genres || [],
         posterShape: 'square',
         runtime: "LIVE",
-        releaseInfo: "Live TV",
+        releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
         behaviorHints: {
             defaultVideoId: `tv${item.name}`,
             isLive: true,
@@ -30,32 +43,35 @@ async function catalogHandler({ extra }) {
     try {
         console.log('Catalog richiesto con args:', JSON.stringify(extra, null, 2));
         const { search, genre } = extra || {};
-        const cachedData = getCachedData();
+        const cachedData = CacheManager.getCachedData();
 
-        // Prima ordiniamo i canali nella cache
-        const sortedChannels = [...cachedData.m3u].sort((a, b) => {
+        // Verifica se la cache è obsoleta
+        if (CacheManager.isStale()) {
+            await CacheManager.updateCache();
+        }
+
+        let channels;
+        if (genre) {
+            channels = CacheManager.getChannelsByGenre(genre);
+        } else if (search) {
+            channels = CacheManager.searchChannels(search);
+        } else {
+            channels = cachedData.m3u;
+        }
+
+        // Ordina i canali
+        const sortedChannels = channels.sort((a, b) => {
             const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
             const numB = b.tvg?.chno || Number.MAX_SAFE_INTEGER;
             return numA - numB || a.name.localeCompare(b.name);
         });
 
-        // Poi applichiamo il filtro e la trasformazione
-        const filteredChannels = sortedChannels
-            .filter(item => {
-                const matchesSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
-                const matchesGenre = !genre || (item.genres && item.genres.includes(genre));
-                return matchesSearch && matchesGenre;
-            })
-            .map(item => {
-                const epgInfo = getChannelInfo(cachedData.epg, item.name);
-                return createChannelMeta(item, epgInfo);
-            });
-
-        console.log(`Trovati ${filteredChannels.length} canali`);
-        return Promise.resolve({ metas: filteredChannels });
+        const metas = sortedChannels.map(createChannelMeta);
+        console.log(`Trovati ${metas.length} canali`);
+        return { metas };
     } catch (error) {
         console.error('Errore nella ricerca dei canali:', error);
-        return Promise.resolve({ metas: [] });
+        return { metas: [] };
     }
 }
 
@@ -63,74 +79,19 @@ async function catalogHandler({ extra }) {
 async function streamHandler({ id }) {
     try {
         console.log('Stream richiesto per id:', id);
-        const cachedData = getCachedData();
         const channelName = id.replace(/^tv/, '');
-        
-        console.log('Cerco canale con nome:', channelName);
-        const channel = cachedData.m3u.find(item => item.name === channelName);
+        const channel = CacheManager.getChannel(channelName);
 
         if (!channel) {
             console.log('Canale non trovato:', channelName);
-            return Promise.resolve({ streams: [] });
+            return { streams: [] };
         }
 
         console.log('Canale trovato:', channel.name);
-        const streams = [];
-        const userAgent = channel.headers?.['User-Agent'] || 'HbbTV/1.6.1';
-
-        // Stream diretto
-        streams.push({
-            name: `${channel.name} (Diretto)`,
-            title: `${channel.name} (Diretto)`,
-            url: channel.url,
-            behaviorHints: {
-                notWebReady: true,
-                bingeGroup: "tv"
-            }
-        });
-
-        // Stream proxy se configurato
-        if (config.PROXY_URL && config.PROXY_PASSWORD) {
-            try {
-                const proxyUrl = `${config.PROXY_URL}/proxy/hls/manifest.m3u8?api_password=${
-                    config.PROXY_PASSWORD}&d=${encodeURIComponent(channel.url)
-                    }&h_User-Agent=${encodeURIComponent(userAgent)}`;
-
-                const response = await axios.head(proxyUrl, { timeout: 5000 });
-                
-                if (response.status === 200 || response.status === 302) {
-                    streams.push({
-                        name: `${channel.name} (Proxy)`,
-                        title: `${channel.name} (Proxy HLS)`,
-                        url: proxyUrl,
-                        behaviorHints: {
-                            notWebReady: false,
-                            bingeGroup: "tv"
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Errore nel proxy stream:', error.message);
-                if (error.response?.status === 403) {
-                    streams.push({
-                        name: `${channel.name} (Errore Proxy)`,
-                        title: `${channel.name} (Errore: Accesso Negato)`,
-                        url: '',
-                        behaviorHints: {
-                            notWebReady: true,
-                            bingeGroup: "tv",
-                            errorMessage: "Accesso negato. Verifica la tua posizione o usa una VPN."
-                        }
-                    });
-                }
-            }
-        }
-
-        console.log('Stream disponibili:', streams.length);
-        return Promise.resolve({ streams });
+        return { streams: await ProxyManager.getProxyStreams(channel) };
     } catch (error) {
         console.error('Errore nel caricamento dello stream:', error);
-        return Promise.resolve({ streams: [] });
+        return { streams: [] };
     }
 }
 
