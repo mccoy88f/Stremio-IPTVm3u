@@ -15,8 +15,10 @@ async function parsePlaylist(url) {
         const groupTitle = item.groupTitle || 'Altri'; // Usa "Altri" come fallback
         groups.add(groupTitle); // Aggiungi il genere al set
 
-        // Estrai i campi tvg-name e tvg-chno correttamente
-        const tvgName = item.tvgName || item.name || null;
+        // Estrai i campi tvg-* correttamente
+        const tvgId = item.tvgId || (item.tvg && item.tvg.id) || null;
+        const tvgName = item.tvgName || (item.tvg && item.tvg.name) || item.name || null;
+        const tvgLogo = item.tvgLogo || (item.tvg && item.tvg.logo) || null;
         const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null;
         const chnoNumber = tvgChno ? parseInt(tvgChno, 10) : null; // Converti in numero
 
@@ -27,9 +29,9 @@ async function parsePlaylist(url) {
             name: item.name || '',
             url: item.url || '',
             tvg: {
-                id: item.tvgId || null,
+                id: tvgId,
                 name: tvgName,
-                logo: item.tvgLogo || null,
+                logo: tvgLogo,
                 chno: chnoNumber
             },
             genres: [groupTitle], // Associa il canale al genere
