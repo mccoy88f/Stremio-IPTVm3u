@@ -1,13 +1,14 @@
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const cron = require('node-cron');
-const { updateCache, getCachedData } = require('./cache');
-const { catalogHandler, streamHandler } = require('./handlers');
 const config = require('./config');
+const CacheManager = require('./cache-manager')(config);
+const EPGManager = require('./epg-manager');
+const { catalogHandler, streamHandler } = require('./handlers');
 
 async function createManifest() {
-    // Aggiorna la cache per avere i generi aggiornati
-    await updateCache();
-    const { genres } = getCachedData();
+    // Assicurati che la cache sia inizializzata
+    await CacheManager.updateCache(true);
+    const { genres } = CacheManager.getCachedData();
     
     // Crea le opzioni dei generi
     const genreOptions = genres.map(genre => ({
@@ -17,19 +18,7 @@ async function createManifest() {
 
     // Crea il manifest completo
     return {
-        id: config.manifest.id,
-        version: config.manifest.version,
-        name: config.manifest.name,
-        description: config.manifest.description,
-        logo: config.manifest.logo,
-        background: config.manifest.logo,
-        behaviorHints: {
-            adult: false,
-            p2p: false
-        },
-        resources: ['stream', 'catalog'],
-        types: ['tv'],
-        idPrefixes: ['tv'],
+        ...config.manifest,
         catalogs: [{
             type: 'tv',
             id: 'iptvitalia',
@@ -50,20 +39,31 @@ async function startServer() {
     try {
         // Crea il manifest e il builder
         const manifest = await createManifest();
+        console.log('Manifest creato:', JSON.stringify(manifest, null, 2));
+        
         const builder = new addonBuilder(manifest);
 
         // Definisci gli handler
         builder.defineCatalogHandler(catalogHandler);
         builder.defineStreamHandler(streamHandler);
 
-        // Configura l'aggiornamento periodico della cache
+        // Configura gli aggiornamenti periodici
+        CacheManager.on('cacheUpdated', () => {
+            console.log('Cache aggiornata con successo');
+        });
+
+        CacheManager.on('cacheError', (error) => {
+            console.error('Errore nell\'aggiornamento della cache:', error);
+        });
+
+        // Configura il cron job per l'aggiornamento
         if (config.enableEPG) {
-            cron.schedule('0 3 * * *', async () => {
+            cron.schedule('0 */12 * * *', async () => {
                 try {
-                    await updateCache();
-                    console.log('Cache aggiornata con successo');
+                    await CacheManager.updateCache(true);
+                    await EPGManager.parseEPG(config.EPG_URL);
                 } catch (error) {
-                    console.error('Errore nell\'aggiornamento della cache:', error);
+                    console.error('Errore nell\'aggiornamento periodico:', error);
                 }
             });
         }
@@ -71,6 +71,7 @@ async function startServer() {
         // Avvia il server HTTP
         const serverInterface = builder.getInterface();
         serveHTTP(serverInterface, { port: config.port });
+        
         console.log(`Server HTTP avviato sulla porta ${config.port}`);
         console.log(`Addon accessibile all'indirizzo: http://127.0.0.1:${config.port}/manifest.json`);
     } catch (error) {
