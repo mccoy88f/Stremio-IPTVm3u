@@ -37,6 +37,23 @@ module.exports = {
         logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
         resources: ['stream', 'catalog'],
         types: ['tv'],
-        idPrefixes: ['tv']
+        idPrefixes: ['tv'],
+        catalogs: [
+            {
+                type: 'tv',
+                id: 'iptv_channels',
+                name: 'IPTV Italia',
+                extra: [
+                    {
+                        name: 'search',
+                        isRequired: false
+                    },
+                    {
+                        name: 'genre',
+                        isRequired: false
+                    }
+                ]
+            }
+        ]
     }
 };
