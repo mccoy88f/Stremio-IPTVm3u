@@ -123,6 +123,10 @@ async function initializeAddon() {
         ]
     });
 
+    // Debug: Verifica i generi passati al manifest
+    console.log('Generi estratti:', groups);
+    console.log('Opzioni dei generi:', builder.manifest.catalogs[0].extra[0].options);
+
     return builder;
 }
 
