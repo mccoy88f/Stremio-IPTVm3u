@@ -1,75 +1,159 @@
 # Stremio IPTV Add-on
 
-Un add-on per Stremio che carica una playlist M3U di IPTV Italia con supporto EPG opzionale.
+Un add-on per Stremio che carica una playlist M3U di IPTV Italia con supporto EPG e visualizzazione dettagliata dei programmi.
 
 ## Funzionalità
-- Carica una playlist M3U da un URL configurabile
-- Supporto EPG opzionale per aggiungere informazioni sui programmi (disabilitato di default)
-- Ricerca dei canali
-- Aggiornamento automatico della cache ogni giorno alle 3 di mattina (solo se l'EPG è abilitato)
-- Interfaccia web per aggiungere l'add-on a Stremio con un solo clic
-- Uso di MediaFlow Proxy per vedere i canali anche su android e web
+
+### Core
+- Caricamento playlist M3U da URL configurabile
+- Visualizzazione dei canali per categorie
+- Ricerca dei canali per nome
+- Ordinamento automatico per numero di canale (quando disponibile)
+- Cache dei dati con aggiornamento automatico
+
+### EPG (Electronic Program Guide)
+- Supporto EPG con informazioni dettagliate sui programmi
+- Visualizzazione del programma in onda
+- Lista dei prossimi programmi con orari
+- Aggiornamento automatico dei dati EPG
+- Descrizioni dettagliate dei programmi quando disponibili
+
+### Streaming
+- Supporto diretto per stream HLS
+- Integrazione con MediaFlow Proxy per compatibilità Android e Web
+- Gestione degli User-Agent personalizzati per ogni canale
+- Fallback automatico tra stream diretti e proxy
+
+### Interfaccia Stremio
+- Catalogo organizzato per categorie
+- Vista dettagliata dei canali con metadati completi
+- Informazioni tecniche del canale (numero canale, qualità, etc.)
+- Integrazione con la ricerca nativa di Stremio
+- Paginazione dei risultati
 
 ## Configurazione
-L'addon utilizza le seguenti variabili d'ambiente:
 
-### M3U_URL
-- Variabile opzionale
-- URL della playlist M3U
-- Se non specificata, viene utilizzata la playlist predefinita di TUNDRAK dalla pagina https://github.com/Tundrak/IPTV-Italia: `https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u`
+### Variabili d'Ambiente
 
-### ENABLE_EPG
-- Variabile opzionale
-- Controlla se l'EPG è abilitato
-- Valori possibili:
-  - `yes`: abilita l'EPG
-  - non impostata o qualsiasi altro valore: EPG disabilitato
-- Se abilitato, utilizza l'EPG da: `https://www.epgitalia.tv/gzip`
-- **IMPORTANTE**: Si consiglia di mantenere l'EPG disabilitato se si fa il deploy su Render con il piano gratuito a causa delle limitazioni di risorse
+#### M3U_URL
+- **Opzionale**
+- URL della playlist M3U personalizzata
+- Default: Playlist TUNDRAK (`https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u`)
 
-## Deploy Locale
+#### ENABLE_EPG
+- **Opzionale**
+- Attiva/disattiva le funzionalità EPG
+- Valori: `yes` per attivare, qualsiasi altro valore per disattivare
+- Default: disattivato
+- **Nota**: Si sconsiglia l'attivazione su piani gratuiti di hosting per limiti di risorse
+
+#### PROXY_URL e PROXY_PASSWORD
+- **Opzionali**
+- Configurazione del MediaFlow Proxy
+- Necessari per la compatibilità con Android e Web
+- Default: nessun proxy
+
+#### PORT
+- **Opzionale**
+- Porta del server
+- Default: 10000
+
+### Intervalli di Cache
+```javascript
+cacheSettings: {
+    updateInterval: 12 * 60 * 60 * 1000, // 12 ore
+    maxAge: 24 * 60 * 60 * 1000,        // 24 ore
+    retryAttempts: 3,
+    retryDelay: 5000                     // 5 secondi
+}
+
+epgSettings: {
+    maxProgramsPerChannel: 50,
+    updateInterval: 12 * 60 * 60 * 1000, // 12 ore
+    cacheExpiry: 24 * 60 * 60 * 1000    // 24 ore
+}
+```
+
+## Installazione
+
+### Deploy Locale
 1. Clona il repository
-2. Installa le dipendenze con `npm install`
-3. (Opzionale) Imposta la variabile d'ambiente `M3U_URL` se vuoi usare una playlist personalizzata
-4. (Opzionale) Imposta `ENABLE_EPG=yes` se vuoi abilitare l'EPG
-5. (Opzionale) Imposta la variabile d'ambiente `PROXY_URL`: URL del media proxy. (necessario per vedere i canali su android e web, altrimenti funziona solo da pc)
-6. (Opzionale) Imposta la variabile d'ambiente `PROXY_PASSWORD`: Password del media proxy.
-7. Avvia l'add-on con `npm start`
+2. Installa le dipendenze:
+   ```bash
+   npm install
+   ```
+3. Configura le variabili d'ambiente (opzionale)
+4. Avvia l'addon:
+   ```bash
+   npm start
+   ```
 
-## Deploy su Render.com
-1. Collega il repository GitHub a Render.com
-2. Configura il servizio:
-   - **Environment Variables**:
-     - `M3U_URL`: (opzionale) URL della tua playlist personalizzata
-     - **NON** abilitare l'EPG (`ENABLE_EPG`) sul piano gratuito di Render
-     - `PROXY_URL`: (opzionale) URL del media proxy. (necessario per vedere i canali su android e web, altrimenti funziona solo da pc)
-     - `PROXY_PASSWORD`: (opzionale) Password del media proxy.
-3. Avvia il deploy
-
-## Aggiungi l'add-on a Stremio
-
-### Metodo 1: Tramite la pagina web
-1. Apri la homepage del server (es. `http://localhost:10000` per installazioni locali)
-2. Clicca sul pulsante "Aggiungi a Stremio"
-
-### Metodo 2: Manualmente
-1. Apri Stremio
-2. Vai su "Addons" > "Community Addons"
-3. Incolla l'URL del manifest (es. `http://localhost:10000/manifest.json` per installazioni locali)
+### Deploy su Render.com
+1. Collega il repository a Render
+2. Configura le variabili d'ambiente:
+   - `M3U_URL` (opzionale)
+   - `PROXY_URL` e `PROXY_PASSWORD` (opzionale)
+   - `ENABLE_EPG` (sconsigliato su piano gratuito)
+3. Deploy automatico ad ogni push
 
 ## Struttura del Progetto
-- `index.js`: Server principale che gestisce la logica dell'add-on
-- `index.html`: Pagina web per l'installazione dell'add-on
-- `package.json`: Configurazione del progetto e dipendenze
-- `README.md`: Questa documentazione
 
-## Come Contribuire
+```
+├── index.js           # Entry point e configurazione server
+├── config.js          # Configurazioni globali
+├── handlers.js        # Gestori delle richieste Stremio
+├── meta-handler.js    # Gestore metadati dettagliati
+├── cache-manager.js   # Gestione della cache
+├── epg-manager.js     # Gestione dati EPG
+├── parser.js          # Parser M3U e EPG
+├── playlist-transformer.js  # Trasformazione dati per Stremio
+└── proxy-manager.js   # Gestione MediaFlow Proxy
+```
+
+## Integrazione con Stremio
+
+### Metodo Automatico
+1. Apri la homepage del server (es. `http://localhost:10000`)
+2. Clicca su "Aggiungi a Stremio"
+
+### Metodo Manuale
+1. Apri Stremio
+2. Vai su "Addons" > "Community Addons"
+3. Incolla l'URL del manifest (es. `http://localhost:10000/manifest.json`)
+
+## Changelog
+
+### v1.2.0
+- Aggiunta vista dettagliata dei canali
+- Migliorata integrazione EPG con programmazione dettagliata
+- Aggiunto supporto per metadati estesi
+- Ottimizzata gestione della cache
+- Migliorata stabilità del proxy
+
+### v1.1.0
+- Aggiunta visualizzazione dei canali per categorie
+- Aggiornato parser a @iptv/playlist 1.1.0
+- Migliorato il supporto per i numeri di canale
+- Aggiunto ordinamento automatico per numero di canale
+- Migliorata la gestione degli user-agent
+
+### v1.0.0
+- Release iniziale
+
+## Contribuire
 1. Fai un fork del repository
 2. Crea un branch per la tua feature (`git checkout -b feature/NuovaFeature`)
-3. Fai commit delle modifiche (`git commit -am 'Aggiunta nuova feature'`)
+3. Committa le modifiche (`git commit -am 'Aggiunta nuova feature'`)
 4. Pusha il branch (`git push origin feature/NuovaFeature`)
 5. Apri una Pull Request
 
+## Problemi Noti
+- L'EPG potrebbe non funzionare correttamente su alcuni hosting gratuiti
+- Alcuni stream potrebbero richiedere il proxy per funzionare su dispositivi mobili
+- La cache EPG potrebbe occupare molta memoria con molti canali
+
+## Esclusione di responsabilità
+- Non sono responsabile dell'uso fraudolento di questo addon e non fornisco ne garanzia ne sicurezza del funzionamento
+
 ## Licenza
 Questo progetto è rilasciato sotto licenza MIT. Vedi il file `LICENSE` per i dettagli.
-L'icona appartiene a Iconic Panda utilizzata senza fini commerciali con attribuzione: https://www.flaticon.com/free-icon/tv_18223703?term=tv&page=1&position=2&origin=tag&related_id=18223703
