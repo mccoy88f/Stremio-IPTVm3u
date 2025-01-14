@@ -13,14 +13,69 @@ const enableEPG = process.env.ENABLE_EPG === 'yes';
 const PROXY_URL = process.env.PROXY_URL || null;
 const PROXY_PASSWORD = process.env.PROXY_PASSWORD || null;
 
-// Funzione per leggere i generi dalla playlist
-async function getGenresFromPlaylist() {
+// Cache per i dati
+let cachedData = {
+    m3u: null,
+    epg: null,
+    lastUpdated: null,
+    genres: new Set()
+};
+
+// Funzione per aggiornare la cache
+async function updateCache() {
     try {
-        const { groups } = await parsePlaylist(M3U_URL);
-        return [...groups]; // Restituisce un array di generi unici
+        console.log('Aggiornamento della cache in corso...');
+
+        // Parsa la playlist M3U
+        const { items, groups } = await parsePlaylist(M3U_URL);
+        console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
+
+        // Aggiorna i generi disponibili
+        cachedData.genres = new Set([...groups]);
+
+        // Verifica che builder.manifest e builder.manifest.catalogs siano definiti
+        if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+            // Aggiorna le opzioni dei generi nel manifest
+            builder.manifest.catalogs[0].extra[0].options = [...cachedData.genres].map(genre => ({
+                name: genre, // Nome visualizzato
+                value: genre // Valore usato per il filtro
+            }));
+            console.log('Generi aggiornati nel manifest:', [...cachedData.genres]);
+            console.log('Opzioni dei generi:', JSON.stringify(builder.manifest.catalogs[0].extra[0].options, null, 2));
+        } else {
+            console.error('builder.manifest.catalogs non è definito o non ha elementi');
+        }
+
+        // Gestisci l'EPG se abilitato
+        let epgData = null;
+        if (enableEPG) {
+            console.log('EPG abilitato. Scaricamento in corso...');
+            try {
+                epgData = await parseEPG(EPG_URL);
+                console.log('EPG caricato correttamente.');
+            } catch (epgError) {
+                console.error('Errore nel caricamento dell\'EPG:', epgError);
+                if (cachedData.epg) {
+                    epgData = cachedData.epg;
+                    console.log('Utilizzo della cache EPG precedente.');
+                }
+            }
+        } else {
+            console.log('EPG disabilitato. Saltato il caricamento.');
+        }
+
+        // Aggiorna la cache
+        cachedData = {
+            m3u: items,
+            epg: epgData,
+            lastUpdated: Date.now(),
+            genres: cachedData.genres
+        };
+
+        console.log('Cache aggiornata con successo!');
     } catch (error) {
-        console.error('Errore nel leggere i generi dalla playlist:', error);
-        return ['Generale', 'Sport', 'Cinema', 'Musica', 'Notizie', 'Bambini', 'Altri']; // Fallback generici
+        console.error('Errore nell\'aggiornamento della cache:', error);
+        throw error;
     }
 }
 
@@ -58,47 +113,6 @@ async function initializeAddon() {
     });
 
     return builder;
-}
-
-// Funzione per aggiornare la cache
-async function updateCache(builder) {
-    try {
-        console.log('Aggiornamento della cache in corso...');
-
-        // Parsa la playlist M3U
-        const { items } = await parsePlaylist(M3U_URL);
-        console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
-
-        // Gestisci l'EPG se abilitato
-        let epgData = null;
-        if (enableEPG) {
-            console.log('EPG abilitato. Scaricamento in corso...');
-            try {
-                epgData = await parseEPG(EPG_URL);
-                console.log('EPG caricato correttamente.');
-            } catch (epgError) {
-                console.error('Errore nel caricamento dell\'EPG:', epgError);
-                if (cachedData.epg) {
-                    epgData = cachedData.epg;
-                    console.log('Utilizzo della cache EPG precedente.');
-                }
-            }
-        } else {
-            console.log('EPG disabilitato. Saltato il caricamento.');
-        }
-
-        // Aggiorna la cache
-        cachedData = {
-            m3u: items,
-            epg: epgData,
-            lastUpdated: Date.now()
-        };
-
-        console.log('Cache aggiornata con successo!');
-    } catch (error) {
-        console.error('Errore nell\'aggiornamento della cache:', error);
-        throw error;
-    }
 }
 
 // Avvia il server
