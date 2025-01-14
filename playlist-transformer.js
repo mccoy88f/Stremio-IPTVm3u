@@ -20,7 +20,6 @@ class PlaylistTransformer {
             if (opt.startsWith('http-user-agent=')) {
                 headers['User-Agent'] = opt.substring('http-user-agent='.length);
             }
-            // Qui possiamo aggiungere altri headers se necessario
             i++;
         }
         
@@ -53,10 +52,9 @@ class PlaylistTransformer {
                 defaultVideoId: id,
                 isLive: true
             },
-            // Manteniamo i dati originali per lo streaming
             streamInfo: {
                 url: channel.url,
-                headers: channel.headers, // Headers dinamici dalla playlist
+                headers: channel.headers,
                 tvg: channel.tvg || {}
             }
         };
@@ -66,8 +64,13 @@ class PlaylistTransformer {
      * Parsa una playlist M3U
      */
     parseM3U(content) {
+        console.log('\n=== Inizio Parsing Playlist M3U ===');
         const lines = content.split('\n');
         let currentChannel = null;
+        
+        // Reset dei dati
+        this.stremioData.genres.clear();
+        this.stremioData.channels = [];
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -101,7 +104,7 @@ class PlaylistTransformer {
                     name,
                     group,
                     tvg: tvgData,
-                    headers: headers // Headers dinamici
+                    headers: headers
                 };
             } else if (line.startsWith('http')) {
                 if (currentChannel) {
@@ -114,10 +117,17 @@ class PlaylistTransformer {
             }
         }
 
-        return {
+        const result = {
             genres: Array.from(this.stremioData.genres),
             channels: this.stremioData.channels
         };
+
+        console.log(`✓ Canali processati: ${result.channels.length}`);
+        console.log(`✓ Generi trovati: ${result.genres.length}`);
+        console.log('Lista generi:', result.genres);
+        console.log('=== Fine Parsing Playlist M3U ===\n');
+
+        return result;
     }
 
     /**
@@ -125,7 +135,10 @@ class PlaylistTransformer {
      */
     async loadAndTransform(url) {
         try {
+            console.log(`\nCaricamento playlist da: ${url}`);
             const response = await axios.get(url);
+            console.log('✓ Playlist scaricata con successo');
+            
             return this.parseM3U(response.data);
         } catch (error) {
             console.error('Errore nel caricamento della playlist:', error);
