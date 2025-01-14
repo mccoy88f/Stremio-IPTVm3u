@@ -15,16 +15,20 @@ async function parsePlaylist(url) {
         const groupTitle = item.groupTitle || 'Altri';
         groups.add(groupTitle);
 
+        // Estrai i campi tvg-name e tvg-chno correttamente
+        const tvgName = item.tvgName || item.name || null; // Usa il nome del canale come fallback
+        const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null; // Estrai tvg-chno correttamente
+
         return {
             name: item.name || '',
             url: item.url || '',
             tvg: {
                 id: item.tvgId || null,
-                name: item.tvgName || null,
+                name: tvgName, // Usa il valore estratto
                 logo: item.tvgLogo || null,
-                chno: item.tvgChno || null
+                chno: tvgChno // Usa il valore estratto
             },
-            genres: [groupTitle], // Usa il group-title come genere
+            genres: [groupTitle],
             headers: {
                 'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
             }
