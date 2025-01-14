@@ -1,46 +1,68 @@
 const axios = require('axios');
-const { parseM3U } = require('@iptv/playlist');
 const { parseStringPromise } = require('xml2js');
 const zlib = require('zlib');
 
 // Funzione per parsare la playlist M3U
 async function parsePlaylist(url) {
     const m3uResponse = await axios.get(url);
-    const playlist = parseM3U(m3uResponse.data);
+    const m3uContent = m3uResponse.data;
 
     // Estrai i gruppi unici (generi)
     const groups = new Set();
+    const items = [];
 
-    const items = playlist.channels.map(item => {
-        const groupTitle = item.groupTitle || 'Altri'; // Usa "Altri" come fallback
-        groups.add(groupTitle); // Aggiungi il genere al set
+    // Dividi la playlist in righe
+    const lines = m3uContent.split('\n');
 
-        // Estrai i campi tvg-* correttamente
-        const tvgId = item.tvgId || (item.tvg && item.tvg.id) || null;
-        const tvgName = item.tvgName || (item.tvg && item.tvg.name) || item.name || null;
-        const tvgLogo = item.tvgLogo || (item.tvg && item.tvg.logo) || null;
-        const tvgChno = item.tvgChno || (item.tvg && item.tvg.chno) || null;
-        const chnoNumber = tvgChno ? parseInt(tvgChno, 10) : null; // Converti in numero
+    let currentItem = null;
 
-        // Log di debug per verificare i valori parsati
-        console.log('Parsing channel:', item.name, 'tvg-chno:', tvgChno, 'Parsed chno:', chnoNumber, 'Genre:', groupTitle);
+    for (const line of lines) {
+        if (line.startsWith('#EXTINF:')) {
+            // Estrai i metadati del canale
+            const metadata = line.substring(8).trim();
+            const attributes = metadata.split(',');
 
-        return {
-            name: item.name || '',
-            url: item.url || '',
-            tvg: {
-                id: tvgId,
-                name: tvgName,
-                logo: tvgLogo,
-                chno: chnoNumber
-            },
-            genres: [groupTitle], // Associa il canale al genere
-            headers: {
-                'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
+            // Estrai i campi tvg-*
+            const tvgAttributes = {};
+            const tvgRegex = /([a-zA-Z-]+)="([^"]+)"/g;
+            let match;
+            while ((match = tvgRegex.exec(metadata)) !== null) {
+                tvgAttributes[match[1]] = match[2];
             }
-        };
-    });
 
+            // Estrai il nome del canale
+            const channelName = attributes[attributes.length - 1].trim();
+
+            // Estrai il gruppo (genere)
+            const groupTitle = tvgAttributes['group-title'] || 'Altri';
+            groups.add(groupTitle);
+
+            // Crea l'oggetto canale
+            currentItem = {
+                name: channelName,
+                url: '', // L'URL verrà impostato nella riga successiva
+                tvg: {
+                    id: tvgAttributes['tvg-id'] || null,
+                    name: tvgAttributes['tvg-name'] || channelName,
+                    logo: tvgAttributes['tvg-logo'] || null,
+                    chno: tvgAttributes['tvg-chno'] ? parseInt(tvgAttributes['tvg-chno'], 10) : null
+                },
+                genres: [groupTitle],
+                headers: {
+                    'User-Agent': 'HbbTV/1.6.1' // Imposta un user-agent predefinito
+                }
+            };
+        } else if (line.startsWith('http')) {
+            // Imposta l'URL del canale
+            if (currentItem) {
+                currentItem.url = line.trim();
+                items.push(currentItem);
+                currentItem = null;
+            }
+        }
+    }
+
+    console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
     return { items, groups: [...groups] }; // Restituisci i generi come array
 }
 
