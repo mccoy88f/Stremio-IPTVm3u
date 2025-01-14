@@ -46,10 +46,15 @@ const config = {
                 extra: [
                     {
                         name: 'genre',
-                        isRequired: false
+                        isRequired: false,
+                        options: ['Rai', 'Mediaset', 'Sky', 'Discovery', 'Radio', 'Altro']
                     },
                     {
                         name: 'search',
+                        isRequired: false
+                    },
+                    {
+                        name: 'skip',
                         isRequired: false
                     }
                 ]
