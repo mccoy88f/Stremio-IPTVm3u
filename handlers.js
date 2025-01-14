@@ -26,7 +26,7 @@ function createChannelMeta(item) {
         background: item.tvg?.logo,
         logo: item.tvg?.logo,
         description: description,
-        genres: item.genres || [],
+        genres: [item.group], // Assicuriamoci che il genere sia un array
         posterShape: 'square',
         runtime: "LIVE",
         releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
@@ -39,9 +39,9 @@ function createChannelMeta(item) {
 }
 
 // Handler per la ricerca dei canali
-async function catalogHandler({ extra }) {
+async function catalogHandler({ type, id, extra }) {
     try {
-        console.log('Catalog richiesto con args:', JSON.stringify(extra, null, 2));
+        console.log('Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
         const { search, genre } = extra || {};
 
         // Verifica se la cache è obsoleta
@@ -49,17 +49,28 @@ async function catalogHandler({ extra }) {
             await CacheManager.updateCache();
         }
 
+        const cachedData = CacheManager.getCachedData();
+        
+        // Se c'è una richiesta di generi, restituisci la lista dei generi disponibili
+        if (extra && extra.genre === '') {
+            return {
+                metas: [],
+                genres: cachedData.genres.map(g => g.name)
+            };
+        }
+
         let channels = [];
         if (genre) {
             channels = CacheManager.getChannelsByGenre(genre);
+            console.log(`Filtro per genere "${genre}": trovati ${channels.length} canali`);
         } else if (search) {
             channels = CacheManager.searchChannels(search);
+            console.log(`Ricerca "${search}": trovati ${channels.length} canali`);
         } else {
-            const cachedData = CacheManager.getCachedData();
             channels = cachedData.m3u || [];
         }
 
-        // Ordina i canali solo se ce ne sono
+        // Ordina i canali
         const sortedChannels = channels.length > 0 ? 
             [...channels].sort((a, b) => {
                 const numA = a.tvg?.chno || Number.MAX_SAFE_INTEGER;
@@ -68,11 +79,15 @@ async function catalogHandler({ extra }) {
             }) : [];
 
         const metas = sortedChannels.map(createChannelMeta);
-        console.log(`Trovati ${metas.length} canali`);
-        return { metas };
+        console.log(`Preparati ${metas.length} canali per la risposta`);
+        
+        return { 
+            metas,
+            genres: cachedData.genres.map(g => g.name) // Includi sempre i generi nella risposta
+        };
     } catch (error) {
         console.error('Errore nella ricerca dei canali:', error);
-        return { metas: [] };
+        return { metas: [], genres: [] };
     }
 }
 
