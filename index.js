@@ -123,7 +123,7 @@ builder.defineCatalogHandler(async (args) => {
         console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
         const { search, genre } = args.extra || {};
 
-        if (!cachedData.m3u || !cachedData.epg) {
+        if (!cachedData.m3u) {
             await updateCache();
         }
 
@@ -205,7 +205,7 @@ builder.defineStreamHandler(async (args) => {
     try {
         console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
         
-        if (!cachedData.m3u || !cachedData.epg) {
+        if (!cachedData.m3u) {
             await updateCache();
         }
 
