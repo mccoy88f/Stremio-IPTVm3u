@@ -125,7 +125,13 @@ async function initializeAddon() {
 
     // Debug: Verifica i generi passati al manifest
     console.log('Generi estratti:', groups);
-    console.log('Opzioni dei generi:', builder.manifest.catalogs[0].extra[0].options);
+
+    // Verifica che il manifest sia stato inizializzato correttamente
+    if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+        console.log('Opzioni dei generi:', builder.manifest.catalogs[0].extra[0].options);
+    } else {
+        console.error('Il manifest non è stato inizializzato correttamente.');
+    }
 
     return builder;
 }
