@@ -22,7 +22,7 @@ let cachedData = {
 };
 
 // Funzione per aggiornare la cache
-async function updateCache() {
+async function updateCache(builder) {
     try {
         console.log('Aggiornamento della cache in corso...');
 
@@ -81,8 +81,6 @@ async function updateCache() {
 
 // Inizializza il manifest con i generi dalla playlist
 async function initializeAddon() {
-    const genres = await getGenresFromPlaylist();
-
     const builder = new addonBuilder({
         id: 'org.mccoy88f.iptvaddon',
         version: '1.1.0',
@@ -101,7 +99,7 @@ async function initializeAddon() {
                     {
                         name: 'genre',
                         isRequired: false,
-                        options: genres.map(genre => ({ name: genre, value: genre })) // Inizializza i generi
+                        options: [] // Inizializza i generi come array vuoto
                     },
                     {
                         name: 'search',
