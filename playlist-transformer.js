@@ -30,7 +30,6 @@ class PlaylistTransformer {
      * Converte un canale nel formato Stremio
      */
     transformChannelToStremio(channel) {
-        console.log('[PlaylistTransformer] Processando canale:', channel);
         
         // Normalizza il nome del canale per l'ID
         const normalizedName = channel.name
@@ -38,7 +37,6 @@ class PlaylistTransformer {
             .replace(/_+/g, '_');
         
         const id = `tv|${normalizedName}`;
-        console.log(`[PlaylistTransformer] ID generato per ${channel.name}: ${id}`);
         
         // Aggiungi il genere alla lista dei generi
         if (channel.group) {
@@ -67,7 +65,6 @@ class PlaylistTransformer {
             }
         };
 
-        console.log('[PlaylistTransformer] Canale trasformato:', transformedChannel);
         return transformedChannel;
     }
 
@@ -112,8 +109,6 @@ class PlaylistTransformer {
                     name = tvgData.name;
                 }
                 
-                console.log('[PlaylistTransformer] Nome canale estratto:', name);
-                console.log('[PlaylistTransformer] TVG data:', tvgData);
 
                 // Controlla se ci sono opzioni VLC nelle righe successive
                 const { headers, nextIndex } = this.parseVLCOpts(lines, i + 1);
