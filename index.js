@@ -81,6 +81,16 @@ async function updateCache(builder) {
 
 // Inizializza il manifest con i generi dalla playlist
 async function initializeAddon() {
+    let groups = [];
+    try {
+        const { groups: extractedGroups } = await parsePlaylist(M3U_URL);
+        groups = extractedGroups;
+    } catch (error) {
+        console.error('Errore nel caricamento della playlist M3U:', error);
+        // Usa un array vuoto se il parsing fallisce
+        groups = [];
+    }
+
     const builder = new addonBuilder({
         id: 'org.mccoy88f.iptvaddon',
         version: '1.1.0',
@@ -99,7 +109,10 @@ async function initializeAddon() {
                     {
                         name: 'genre',
                         isRequired: false,
-                        options: [] // Inizializza i generi come array vuoto
+                        options: groups.map(genre => ({
+                            name: genre, // Nome visualizzato
+                            value: genre // Valore usato per il filtro
+                        }))
                     },
                     {
                         name: 'search',
