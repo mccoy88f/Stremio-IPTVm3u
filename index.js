@@ -62,7 +62,7 @@ async function updateCache() {
 
         // Verifica che builder.manifest.catalogs sia definito
         if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
-            builder.manifest.catalogs[0].extra[1].options = [...groups].map(group => ({
+            builder.manifest.catalogs[0].extra[0].options = [...groups].map(group => ({
                 name: group,
                 value: group
             }));
@@ -165,7 +165,7 @@ builder.defineCatalogHandler(async (args) => {
                     background: tvgLogo || icon,
                     logo: tvgLogo || icon,
                     description: description || baseDescription, // Descrizione del canale
-                    genres: [groupTitle || 'Altri'],
+                    genres: item.genres || [groupTitle || 'Altri'], // Usa i generi dalla playlist o il gruppo come fallback
                     posterShape: 'square',
                     streams: [], // Indica che il contenuto ha degli stream
                     videos: [], // Indica che è un contenuto riproducibile
