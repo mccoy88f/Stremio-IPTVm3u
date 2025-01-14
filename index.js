@@ -62,11 +62,17 @@ async function updateCache() {
         // Aggiorna i generi disponibili
         cachedData.genres = new Set([...groups]);
 
-        // Aggiorna le opzioni dei generi nel manifest
-        builder.manifest.catalogs[0].extra[0].options = [...cachedData.genres].map(genre => ({
-            name: genre,
-            value: genre
-        }));
+        // Verifica che builder.manifest e builder.manifest.catalogs siano definiti
+        if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+            // Aggiorna le opzioni dei generi nel manifest
+            builder.manifest.catalogs[0].extra[0].options = [...cachedData.genres].map(genre => ({
+                name: genre,
+                value: genre
+            }));
+            console.log('Generi aggiornati nel manifest:', [...cachedData.genres]);
+        } else {
+            console.error('builder.manifest.catalogs non è definito o non ha elementi');
+        }
 
         // Gestisci l'EPG se abilitato
         let epgData = null;
