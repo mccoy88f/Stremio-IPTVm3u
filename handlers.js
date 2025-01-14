@@ -18,27 +18,30 @@ function createChannelMeta(item) {
         }
     }
 
+    // Creiamo un ID sicuro rimuovendo caratteri problematici
+    const safeId = `tv|${item.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
     return {
-        id: `tv${item.name}`,
+        id: safeId,
         type: 'tv',
         name: item.name,
         poster: item.tvg?.logo || 'https://www.stremio.com/website/stremio-white-small.png',
         background: item.tvg?.logo,
         logo: item.tvg?.logo,
         description: description,
-        genres: [item.group], // Assicuriamoci che il genere sia un array
+        genres: [item.group],
         posterShape: 'square',
         runtime: "LIVE",
         releaseInfo: epgData ? `In onda: ${epgData.title}` : "Live TV",
         behaviorHints: {
-            defaultVideoId: `tv${item.name}`,
+            defaultVideoId: safeId,
             isLive: true,
             hasSchedule: !!config.enableEPG
         }
     };
 }
 
-// Handler per la ricerca dei canali
+// Handler per il catalogo
 async function catalogHandler({ type, id, extra }) {
     try {
         console.log('Catalog richiesto con args:', JSON.stringify({ type, id, extra }, null, 2));
@@ -51,7 +54,19 @@ async function catalogHandler({ type, id, extra }) {
 
         const cachedData = CacheManager.getCachedData();
         
-        // Se c'è una richiesta di generi, restituisci la lista dei generi disponibili
+        // Se è una richiesta per un ID specifico
+        if (id && id.startsWith('tv|')) {
+            const channelName = id.split('|')[1].replace(/_/g, ' ');
+            const channel = CacheManager.getChannel(channelName);
+            if (channel) {
+                return {
+                    metas: [createChannelMeta(channel)]
+                };
+            }
+            return { metas: [] };
+        }
+
+        // Se c'è una richiesta di generi
         if (extra && extra.genre === '') {
             return {
                 metas: [],
@@ -62,10 +77,8 @@ async function catalogHandler({ type, id, extra }) {
         let channels = [];
         if (genre) {
             channels = CacheManager.getChannelsByGenre(genre);
-            console.log(`Filtro per genere "${genre}": trovati ${channels.length} canali`);
         } else if (search) {
             channels = CacheManager.searchChannels(search);
-            console.log(`Ricerca "${search}": trovati ${channels.length} canali`);
         } else {
             channels = cachedData.m3u || [];
         }
@@ -79,11 +92,10 @@ async function catalogHandler({ type, id, extra }) {
             }) : [];
 
         const metas = sortedChannels.map(createChannelMeta);
-        console.log(`Preparati ${metas.length} canali per la risposta`);
         
         return { 
             metas,
-            genres: cachedData.genres.map(g => g.name) // Includi sempre i generi nella risposta
+            genres: cachedData.genres.map(g => g.name)
         };
     } catch (error) {
         console.error('Errore nella ricerca dei canali:', error);
@@ -95,7 +107,7 @@ async function catalogHandler({ type, id, extra }) {
 async function streamHandler({ id }) {
     try {
         console.log('Stream richiesto per id:', id);
-        const channelName = id.replace(/^tv/, '');
+        const channelName = id.split('|')[1].replace(/_/g, ' ');
         const channel = CacheManager.getChannel(channelName);
 
         if (!channel) {
@@ -105,6 +117,13 @@ async function streamHandler({ id }) {
 
         console.log('Canale trovato:', channel.name);
         const streams = await ProxyManager.getProxyStreams(channel);
+        
+        // Aggiungi le meta informazioni agli stream
+        const meta = createChannelMeta(channel);
+        streams.forEach(stream => {
+            stream.meta = meta;
+        });
+
         return { streams };
     } catch (error) {
         console.error('Errore nel caricamento dello stream:', error);
