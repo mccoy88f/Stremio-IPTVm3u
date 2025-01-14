@@ -62,8 +62,15 @@ async function parsePlaylist(url) {
         }
     }
 
+    // Converti Set in Array e logga i gruppi trovati
+    const uniqueGroups = [...groups];
+    console.log('Gruppi unici trovati nel parser:', uniqueGroups);
     console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
-    return { items, groups: [...groups] }; // Restituisci i generi come array
+    
+    return { 
+        items, 
+        groups: uniqueGroups
+    };
 }
 
 // Funzione per scaricare e parsare l'EPG
