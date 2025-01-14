@@ -7,14 +7,14 @@ const zlib = require('zlib');
 async function parsePlaylist(url) {
     const m3uResponse = await axios.get(url);
     const playlist = parseM3U(m3uResponse.data);
-    
+
     // Estrai i gruppi unici
     const groups = new Set();
-    
+
     const items = playlist.channels.map(item => {
-        const groupTitle = item.groupTitle || 'Altri Canali';
+        const groupTitle = item.groupTitle || 'Altri Canali'; // Usa "Altri Canali" se group-title non è definito
         groups.add(groupTitle);
-        
+
         return {
             name: item.name || '',
             url: item.url || '',
@@ -25,7 +25,7 @@ async function parsePlaylist(url) {
                 chno: item.tvgChno || null
             },
             group: {
-                title: groupTitle
+                title: groupTitle // Usa il group-title come genre
             },
             headers: {
                 'User-Agent': (item.extras?.['http-user-agent'] || item.extras?.['user-agent'] || 'HbbTV/1.6.1')
