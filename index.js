@@ -60,14 +60,14 @@ async function updateCache() {
         console.log('Playlist M3U caricata correttamente. Numero di canali:', items.length);
         console.log('Gruppi trovati:', [...groups]);
 
-        // Aggiorna le opzioni delle categorie nel manifest
-        if (builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
+        // Verifica che builder.manifest.catalogs sia definito
+        if (builder.manifest && builder.manifest.catalogs && builder.manifest.catalogs.length > 0) {
             builder.manifest.catalogs[0].extra[1].options = [...groups].map(group => ({
                 name: group,
                 value: group
             }));
         } else {
-            console.error('Catalogs non definiti o vuoti nel manifest.');
+            console.error('builder.manifest.catalogs non è definito o non ha elementi');
         }
 
         // Gestisci l'EPG se abilitato
@@ -123,7 +123,7 @@ builder.defineCatalogHandler(async (args) => {
         console.log('Catalog richiesto con args:', JSON.stringify(args, null, 2));
         const { search, genre } = args.extra || {};
 
-        if (!cachedData.m3u) {
+        if (!cachedData.m3u || !cachedData.epg) {
             await updateCache();
         }
 
@@ -205,7 +205,7 @@ builder.defineStreamHandler(async (args) => {
     try {
         console.log('Stream richiesto con args:', JSON.stringify(args, null, 2));
         
-        if (!cachedData.m3u) {
+        if (!cachedData.m3u || !cachedData.epg) {
             await updateCache();
         }
 
