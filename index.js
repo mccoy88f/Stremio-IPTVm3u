@@ -1,6 +1,7 @@
 const { addonBuilder } = require('stremio-addon-sdk');
 const PlaylistTransformer = require('./playlist-transformer');
 const { catalogHandler, streamHandler } = require('./handlers');
+const metaHandler = require('./meta-handler');
 
 async function generateConfig() {
     try {
@@ -10,7 +11,7 @@ async function generateConfig() {
         const transformer = new PlaylistTransformer();
         
         // Carica e trasforma la playlist
-        const playlistUrl = process.env.M3U_URL || 'https://raw.githubusercontent.com/dtankdempse/daddylive-m3u/refs/heads/main/all_channels/playlist.m3u8';
+        const playlistUrl = process.env.M3U_URL || 'https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u';
         console.log('Caricamento playlist da:', playlistUrl);
         
         const data = await transformer.loadAndTransform(playlistUrl);
@@ -40,11 +41,11 @@ async function generateConfig() {
             
             manifest: {
                 id: 'org.mccoy88f.iptvaddon',
-                version: '1.1.0',
+                version: '1.2.0',
                 name: 'IPTV Italia Addon',
                 description: 'Un add-on per Stremio che carica una playlist M3U di IPTV Italia con EPG.',
                 logo: 'https://github.com/mccoy88f/Stremio-IPTVm3u/blob/main/tv.png?raw=true',
-                resources: ['stream', 'catalog'],
+                resources: ['stream', 'catalog', 'meta'],
                 types: ['tv'],
                 idPrefixes: ['tv'],
                 catalogs: [
@@ -94,6 +95,7 @@ async function startAddon() {
         // Define routes
         builder.defineStreamHandler(streamHandler);
         builder.defineCatalogHandler(catalogHandler);
+        builder.defineMetaHandler(metaHandler);
 
         // Initialize the cache manager
         const CacheManager = require('./cache-manager')(config);
