@@ -11,7 +11,6 @@ function normalizeChannelName(name) {
         .trim()                      // Rimuove spazi iniziali e finali
         .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
     
-    console.log(`[MetaHandler] Normalizzazione nome canale: "${name}" -> "${normalized}"`);
     return normalized;
 }
 
@@ -61,7 +60,6 @@ function enrichWithDetailedEPG(meta, channelId) {
  */
 async function metaHandler({ type, id }) {
     try {
-        console.log('[MetaHandler] Meta richiesto per id:', id);
         
         // Aggiorna la cache se necessario
         if (CacheManager.isStale()) {
@@ -70,25 +68,20 @@ async function metaHandler({ type, id }) {
 
         // Estrai il nome del canale dall'ID e normalizzalo
         const channelName = id.split('|')[1].replace(/_/g, ' ');
-        console.log('[MetaHandler] Nome canale estratto:', channelName);
 
         // Debug: stampa tutti i canali disponibili
         const allChannels = CacheManager.getCachedData().channels;
-        console.log('[MetaHandler] Canali disponibili:', allChannels.map(ch => ch.name));
 
         const normalizedSearchName = normalizeChannelName(channelName);
         const channel = allChannels.find(ch => {
             const normalizedChannelName = normalizeChannelName(ch.name);
-            console.log(`[MetaHandler] Confronto: "${normalizedChannelName}" con "${normalizedSearchName}"`);
             return normalizedChannelName === normalizedSearchName;
         });
 
         if (!channel) {
-            console.log('[MetaHandler] Canale non trovato:', channelName);
             return { meta: null };
         }
 
-        console.log('[MetaHandler] Canale trovato:', channel.name);
 
         // Crea l'oggetto meta con informazioni dettagliate
         const meta = {
