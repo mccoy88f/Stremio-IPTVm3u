@@ -27,40 +27,32 @@ async function initializeAddon() {
 
     console.log('Opzioni dei generi create:', JSON.stringify(genreOptions, null, 2));
 
-    // Creiamo prima il builder con le opzioni base
+    // Creiamo il builder con tutte le opzioni necessarie
     const builder = new addonBuilder({
         id: config.manifest.id,
         version: config.manifest.version,
         name: config.manifest.name,
         description: config.manifest.description,
+        logo: config.manifest.logo,
         resources: ['catalog', 'stream'],
         types: ['tv'],
-        idPrefixes: ['tv']
-    });
-
-    // Aggiungiamo manualmente il catalogo
-    if (!builder.manifest.catalogs) {
-        builder.manifest.catalogs = [];
-    }
-
-    builder.manifest.catalogs.push({
-        type: 'tv',
-        id: 'iptvitalia',
-        name: 'Canali TV Italia',
-        extra: [{
-            name: 'genre',
-            isRequired: false,
-            options: genreOptions
-        }, {
-            name: 'search',
-            isRequired: false
+        idPrefixes: ['tv'],
+        catalogs: [{
+            type: 'tv',
+            id: 'iptvitalia',
+            name: 'Canali TV Italia',
+            extra: [{
+                name: 'genre',
+                isRequired: false,
+                options: genreOptions
+            }, {
+                name: 'search',
+                isRequired: false
+            }]
         }]
     });
 
-    // Aggiungiamo il logo
-    builder.manifest.logo = config.manifest.logo;
-
-    console.log('Manifest dopo le modifiche:', JSON.stringify(builder.manifest, null, 2));
+    console.log('Manifest creato:', JSON.stringify(builder.manifest, null, 2));
 
     // Definisci gli handler
     builder.defineCatalogHandler(args => catalogHandler(args, builder));
