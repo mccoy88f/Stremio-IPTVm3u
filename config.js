@@ -43,7 +43,7 @@ module.exports = {
                 type: 'tv',
                 id: 'iptv_category',
                 name: 'IPTV Italia',
-                extraSupported: ['search', 'genre', 'skip'],
+                extraSupported: ['search', 'genre', 'skip'], // Abilita i filtri per genere
                 extraRequired: []
             }
         ]
