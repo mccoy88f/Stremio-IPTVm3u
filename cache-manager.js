@@ -10,7 +10,6 @@ function normalizeChannelName(name) {
         .trim()                      // Rimuove spazi iniziali e finali
         .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
     
-    console.log(`[CacheManager] Normalizzazione nome canale: "${name}" -> "${normalized}"`);
     return normalized;
 }
 
@@ -61,11 +60,6 @@ class CacheManager extends EventEmitter {
             console.log('\nRiepilogo Cache:');
             console.log(`✓ Canali in cache: ${stremioData.channels.length}`);
             console.log(`✓ Generi trovati: ${stremioData.genres.length}`);
-            console.log(`✓ Lista generi: ${stremioData.genres.join(', ')}`);
-            console.log('✓ Lista canali:');
-            stremioData.channels.forEach(channel => {
-                console.log(`  - "${channel.name}" -> "${normalizeChannelName(channel.name)}"`);
-            });
             console.log(`✓ Ultimo aggiornamento: ${new Date().toLocaleString()}`);
             console.log('\n=== Cache Aggiornata con Successo ===\n');
 
@@ -92,15 +86,9 @@ class CacheManager extends EventEmitter {
         const normalizedSearchName = normalizeChannelName(channelName);
         const channel = this.cache.stremioData?.channels.find(ch => {
             const normalizedChannelName = normalizeChannelName(ch.name);
-            console.log(`[CacheManager] Confronto: "${normalizedChannelName}" con "${normalizedSearchName}"`);
             return normalizedChannelName === normalizedSearchName;
         });
 
-        if (!channel) {
-            console.log(`[CacheManager] Canale non trovato: "${channelName}" (normalizzato: "${normalizedSearchName}")`);
-        } else {
-            console.log(`[CacheManager] Canale trovato: "${channel.name}"`);
-        }
 
         return channel;
     }

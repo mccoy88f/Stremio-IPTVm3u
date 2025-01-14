@@ -12,7 +12,6 @@ function normalizeChannelName(name) {
         .trim()                      // Rimuove spazi iniziali e finali
         .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
     
-    console.log(`[Handlers] Normalizzazione nome canale: "${name}" -> "${normalized}"`);
     return normalized;
 }
 
@@ -56,9 +55,6 @@ async function catalogHandler({ type, id, extra }) {
         const { search, genre, skip = 0 } = extra || {};
         const ITEMS_PER_PAGE = 100;
 
-        // Log dei generi disponibili per debug
-        console.log('[Handlers] Generi disponibili nella cache:', cachedData.genres);
-        console.log('[Handlers] Genere richiesto:', genre);
 
         // Filtraggio canali
         let channels = [];
@@ -137,17 +133,13 @@ async function streamHandler({ id }) {
     try {
         console.log('[Handlers] Stream richiesto per id:', id);
         const channelName = id.split('|')[1].replace(/_/g, ' ');
-        console.log('[Handlers] Nome canale estratto:', channelName);
-
         // Debug: stampa tutti i canali disponibili
         const allChannels = CacheManager.getCachedData().channels;
-        console.log('[Handlers] Canali disponibili:', allChannels.map(ch => ch.name));
         
         // Usa la funzione di normalizzazione per trovare il canale
         const normalizedSearchName = normalizeChannelName(channelName);
         const channel = allChannels.find(ch => {
             const normalizedChannelName = normalizeChannelName(ch.name);
-            console.log(`[Handlers] Confronto: "${normalizedChannelName}" con "${normalizedSearchName}"`);
             return normalizedChannelName === normalizedSearchName;
         });
 
