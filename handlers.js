@@ -3,18 +3,6 @@ const CacheManager = require('./cache-manager')(config);
 const EPGManager = require('./epg-manager');
 const ProxyManager = new (require('./proxy-manager'))(config);
 
-function normalizeChannelName(name) {
-    const normalized = name
-        .replace(/_/g, ' ')          // Sostituisce underscore con spazi
-        .replace(/\s+/g, ' ')        // Normalizza spazi multipli
-        .replace(/\./g, '')          // Rimuove i punti
-        .replace(/(\d+)[\s.]*(\d+)/g, '$1$2') // Unisce i numeri (102.5 o 102 5 -> 1025)
-        .trim()                      // Rimuove spazi iniziali e finali
-        .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
-    
-    return normalized;
-}
-
 /**
  * Arricchisce i metadati del canale con informazioni EPG
  */
@@ -55,7 +43,6 @@ async function catalogHandler({ type, id, extra }) {
         const { search, genre, skip = 0 } = extra || {};
         const ITEMS_PER_PAGE = 100;
 
-
         // Filtraggio canali
         let channels = [];
         if (genre) {
@@ -66,11 +53,10 @@ async function catalogHandler({ type, id, extra }) {
             console.log(`[Handlers] Filtrati ${channels.length} canali per genere: ${genre}`);
         } else if (search) {
             // Filtra per ricerca
-            const normalizedSearch = normalizeChannelName(search);
-            channels = cachedData.channels.filter(channel => {
-                const normalizedName = normalizeChannelName(channel.name);
-                return normalizedName.includes(normalizedSearch);
-            });
+            const searchLower = search.toLowerCase();
+            channels = cachedData.channels.filter(channel => 
+                channel.name.toLowerCase().includes(searchLower)
+            );
             console.log(`[Handlers] Trovati ${channels.length} canali per la ricerca: ${search}`);
         } else {
             channels = cachedData.channels;
@@ -132,43 +118,52 @@ async function catalogHandler({ type, id, extra }) {
 async function streamHandler({ id }) {
     try {
         console.log('[Handlers] Stream richiesto per id:', id);
-        const channelName = id.split('|')[1].replace(/_/g, ' ');
-        // Debug: stampa tutti i canali disponibili
-        const allChannels = CacheManager.getCachedData().channels;
+        const channelId = id.split('|')[1];
+        console.log('[Handlers] Ricerca canale con ID:', channelId);
         
-        // Usa la funzione di normalizzazione per trovare il canale
-        const normalizedSearchName = normalizeChannelName(channelName);
-        const channel = allChannels.find(ch => {
-            const normalizedChannelName = normalizeChannelName(ch.name);
-            return normalizedChannelName === normalizedSearchName;
-        });
+        // Trova il canale usando l'ID completo
+        const channel = CacheManager.getChannel(channelId);
 
         if (!channel) {
-            console.log('[Handlers] Canale non trovato:', channelName);
+            console.log('[Handlers] Canale non trovato:', channelId);
             return { streams: [] };
         }
 
         console.log('[Handlers] Canale trovato:', channel.name);
 
-        // Crea lo stream di base
-        const streams = [{
-            name: channel.name,
-            title: channel.name,
-            url: channel.streamInfo.url,
-            behaviorHints: {
-                notWebReady: false,
-                bingeGroup: "tv"
-            }
-        }];
+        let streams = [];
 
-        // Aggiungi stream proxy se configurato
-        if (config.PROXY_URL && config.PROXY_PASSWORD) {
+        // Se FORCE_PROXY è attivo, aggiungi solo gli stream proxy
+        if (config.FORCE_PROXY && config.PROXY_URL && config.PROXY_PASSWORD) {
             const proxyStreams = await ProxyManager.getProxyStreams({
                 name: channel.name,
                 url: channel.streamInfo.url,
                 headers: channel.streamInfo.headers
             });
             streams.push(...proxyStreams);
+            console.log('[Handlers] Modalità FORCE_PROXY: aggiunti solo stream proxy');
+        } else {
+            // Comportamento normale: prima lo stream diretto, poi quelli proxy
+            streams.push({
+                name: channel.name,
+                title: channel.name,
+                url: channel.streamInfo.url,
+                behaviorHints: {
+                    notWebReady: false,
+                    bingeGroup: "tv"
+                }
+            });
+
+            // Aggiungi stream proxy se configurato
+            if (config.PROXY_URL && config.PROXY_PASSWORD) {
+                const proxyStreams = await ProxyManager.getProxyStreams({
+                    name: channel.name,
+                    url: channel.streamInfo.url,
+                    headers: channel.streamInfo.headers
+                });
+                streams.push(...proxyStreams);
+                console.log('[Handlers] Aggiunti stream proxy addizionali');
+            }
         }
 
         // Aggiungi metadati a tutti gli stream
@@ -192,6 +187,7 @@ async function streamHandler({ id }) {
             stream.meta = enrichedMeta;
         });
 
+        console.log(`[Handlers] Restituiti ${streams.length} stream per il canale ${channel.name}`);
         return { streams };
     } catch (error) {
         console.error('[Handlers] Errore nel caricamento dello stream:', error);
