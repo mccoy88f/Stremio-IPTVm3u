@@ -17,11 +17,15 @@ async function generateConfig() {
         const data = await transformer.loadAndTransform(playlistUrl);
         console.log(`Trovati ${data.genres.length} generi`);
 
+        // Gestione EPG URL - usa l'URL dalla playlist se non è specificato nelle variabili d'ambiente
+        const epgUrl = process.env.EPG_URL || data.epgUrl || 'https://www.epgitalia.tv/gzip';
+        console.log('EPG URL configurato:', epgUrl);
+
         // Crea la configurazione base
         const config = {
             port: process.env.PORT || 10000,
             M3U_URL: playlistUrl,
-            EPG_URL: 'https://www.epgitalia.tv/gzip',
+            EPG_URL: epgUrl,
             enableEPG: process.env.ENABLE_EPG === 'yes',
             PROXY_URL: process.env.PROXY_URL || null,
             PROXY_PASSWORD: process.env.PROXY_PASSWORD || null,
@@ -75,6 +79,11 @@ async function generateConfig() {
 
         console.log('Configurazione generata con i seguenti generi:');
         console.log(data.genres.join(', '));
+        if (config.enableEPG) {
+            console.log('EPG abilitata, URL:', config.EPG_URL);
+        } else {
+            console.log('EPG disabilitata');
+        }
         console.log('\n=== Fine Generazione Configurazione ===\n');
 
         return config;
