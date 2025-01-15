@@ -25,10 +25,10 @@ class EPGManager {
             this.startEPGUpdate(url);
         });
 
-        // Avvia il primo aggiornamento dopo 5 minuti dall'avvio
+        // Avvia il primo aggiornamento dopo 1 minuto dall'avvio
         setTimeout(() => {
             this.startEPGUpdate(url);
-        }, 5 * 60 * 1000);
+        }, 60 * 1000); // Cambiato da 5 minuti a 1 minuto
     }
 
     async startEPGUpdate(url) {
@@ -42,8 +42,20 @@ class EPGManager {
             console.log('Scaricamento EPG da:', url);
             
             const response = await axios.get(url, { responseType: 'arraybuffer' });
-            const decompressed = await gunzip(response.data);
-            const xmlData = await parseStringPromise(decompressed.toString());
+            let xmlString;
+
+            // Prova a decomprimere come gzip
+            try {
+                const decompressed = await gunzip(response.data);
+                xmlString = decompressed.toString();
+            } catch (gzipError) {
+                // Se fallisce, assume che sia già un XML non compresso
+                console.log('File non compresso in gzip, processamento diretto...');
+                xmlString = response.data.toString();
+            }
+
+            // Parsa l'XML
+            const xmlData = await parseStringPromise(xmlString);
             
             // Reset della guida programmi
             this.programGuide.clear();
