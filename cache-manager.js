@@ -1,18 +1,6 @@
 const EventEmitter = require('events');
 const PlaylistTransformer = require('./playlist-transformer');
 
-function normalizeChannelName(name) {
-    const normalized = name
-        .replace(/_/g, ' ')          // Sostituisce underscore con spazi
-        .replace(/\s+/g, ' ')        // Normalizza spazi multipli
-        .replace(/\./g, '')          // Rimuove i punti
-        .replace(/(\d+)[\s.]*(\d+)/g, '$1$2') // Unisce i numeri (102.5 o 102 5 -> 1025)
-        .trim()                      // Rimuove spazi iniziali e finali
-        .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
-    
-    return normalized;
-}
-
 class CacheManager extends EventEmitter {
     constructor(config) {
         super();
@@ -82,13 +70,21 @@ class CacheManager extends EventEmitter {
         };
     }
 
-    getChannel(channelName) {
-        const normalizedSearchName = normalizeChannelName(channelName);
+    getChannel(channelId) {
+        console.log('[CacheManager] Ricerca canale con ID:', channelId);
         const channel = this.cache.stremioData?.channels.find(ch => {
-            const normalizedChannelName = normalizeChannelName(ch.name);
-            return normalizedChannelName === normalizedSearchName;
+            const match = ch.id === `tv|${channelId}`;
+            if (match) {
+                console.log('[CacheManager] Trovata corrispondenza per canale:', ch.name);
+            }
+            return match;
         });
 
+        if (!channel) {
+            console.log('[CacheManager] Nessun canale trovato per ID:', channelId);
+            // Prova a cercare per nome se la ricerca per ID fallisce
+            return this.cache.stremioData?.channels.find(ch => ch.name === channelId);
+        }
 
         return channel;
     }
@@ -102,11 +98,10 @@ class CacheManager extends EventEmitter {
 
     searchChannels(query) {
         if (!query) return this.cache.stremioData?.channels || [];
-        const searchTerm = normalizeChannelName(query);
-        return this.cache.stremioData?.channels.filter(channel => {
-            const normalizedName = normalizeChannelName(channel.name);
-            return normalizedName.includes(searchTerm);
-        }) || [];
+        const searchLower = query.toLowerCase();
+        return this.cache.stremioData?.channels.filter(channel => 
+            channel.name.toLowerCase().includes(searchLower)
+        ) || [];
     }
 
     isStale() {
