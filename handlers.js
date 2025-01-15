@@ -20,10 +20,14 @@ function normalizeChannelName(name) {
  */
 function enrichWithEPG(meta, channelId) {
     if (!config.enableEPG) return meta;
-
+    
     const epgData = EPGManager.getCurrentProgram(channelId);
-    const upcoming = EPGManager.getUpcomingPrograms(channelId, 3);
+    console.log('Dati EPG trovati:', epgData ? 'Si' : 'No');
 
+    const upcoming = EPGManager.getUpcomingPrograms(channelId, 3);
+    console.log('Programmi futuri trovati:', upcoming.length);
+
+    
     if (epgData) {
         meta.description = `${meta.description}\n\nIn onda: ${epgData.title}`;
         if (epgData.description) {
