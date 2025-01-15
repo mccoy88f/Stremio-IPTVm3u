@@ -118,10 +118,86 @@ async function startAddon() {
         const addonInterface = builder.getInterface();
         const serveHTTP = require('stremio-addon-sdk/src/serveHTTP');
 
-        serveHTTP(addonInterface, { port: config.port })
+        // Personalizza la pagina HTML
+        const landingTemplate = landing => `
+<!DOCTYPE html>
+<html style="background: #000">
+<head>
+    <meta charset="utf-8">
+    <title>${landing.name} - Stremio Addon</title>
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 { color: #fff; }
+        .logo {
+            width: 150px;
+            margin: 0 auto;
+            display: block;
+        }
+        button {
+            border: 0;
+            outline: 0;
+            color: #fff;
+            background: #8A5AAB;
+            padding: 13px 30px;
+            margin: 20px 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #9B6BC3;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 14px;
+            color: #666;
+        }
+        .footer a {
+            color: #8A5AAB;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+    <script>
+        function copyManifestLink() {
+            const manifestUrl = window.location.href + 'manifest.json';
+            navigator.clipboard.writeText(manifestUrl).then(() => {
+                alert('Link del manifest copiato negli appunti!');
+            });
+        }
+    </script>
+</head>
+<body>
+    <img class="logo" src="${landing.logo}" />
+    <h1 style="color: white">${landing.name}</h1>
+    <h2 style="color: white">${landing.description}</h2>
+    <button onclick="window.location = 'stremio://${landing.transportUrl}/manifest.json'">
+        Aggiungi a Stremio
+    </button>
+    <button onclick="copyManifestLink()">
+        Copia link manifest
+    </button>
+    <div class="footer">
+        Questo server è basato sul progetto di McCoy88f<br>
+        <a href="https://github.com/mccoy88f/Stremio-IPTVm3u/" target="_blank">Link al repository</a>
+    </div>
+</body>
+</html>`;
+
+        // Avvia il server con il template personalizzato
+        serveHTTP(addonInterface, { port: config.port, landingTemplate })
             .then(({ url }) => {
                 console.log('Addon active on:', url);
-                console.log('Add the following URL to Stremio:', url);
+                console.log('Add the following URL to Stremio:', url + 'manifest.json');
             })
             .catch(error => {
                 console.error('Failed to start server:', error);
