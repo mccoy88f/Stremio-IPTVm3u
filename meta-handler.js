@@ -2,18 +2,6 @@ const config = require('./config');
 const CacheManager = require('./cache-manager')(config);
 const EPGManager = require('./epg-manager');
 
-function normalizeChannelName(name) {
-    const normalized = name
-        .replace(/_/g, ' ')          // Sostituisce underscore con spazi
-        .replace(/\s+/g, ' ')        // Normalizza spazi multipli
-        .replace(/\./g, '')          // Rimuove i punti
-        .replace(/(\d+)[\s.]*(\d+)/g, '$1$2') // Unisce i numeri (102.5 o 102 5 -> 1025)
-        .trim()                      // Rimuove spazi iniziali e finali
-        .toLowerCase();              // Converte in minuscolo per confronto case-insensitive
-    
-    return normalized;
-}
-
 /**
  * Arricchisce i metadati del canale con informazioni EPG dettagliate
  */
@@ -65,19 +53,23 @@ async function metaHandler({ type, id }) {
             await CacheManager.updateCache();
         }
 
-        // Estrai il nome del canale dall'ID e normalizzalo
-        const channelName = id.split('|')[1].replace(/_/g, ' ');
+        // Estrai il nome del canale dall'ID
+        const channelId = id.split('|')[1];
 
-        // Debug: stampa tutti i canali disponibili
+        // Debug logging
+        console.log('[MetaHandler] ID ricevuto:', id);
+        console.log('[MetaHandler] Channel ID estratto:', channelId);
+
+        // Trova il canale
         const allChannels = CacheManager.getCachedData().channels;
-
-        const normalizedSearchName = normalizeChannelName(channelName);
-        const channel = allChannels.find(ch => {
-            const normalizedChannelName = normalizeChannelName(ch.name);
-            return normalizedChannelName === normalizedSearchName;
-        });
+        const channel = allChannels.find(ch => 
+            ch.id === id ||  // Corrispondenza ID completo
+            ch.name === channelId ||  // Corrispondenza nome canale
+            ch.streamInfo?.tvg?.id === channelId  // Corrispondenza ID TVG
+        );
 
         if (!channel) {
+            console.log('[MetaHandler] Nessun canale trovato');
             return { meta: null };
         }
 
