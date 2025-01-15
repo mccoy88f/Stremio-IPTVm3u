@@ -4,11 +4,24 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const gunzip = promisify(zlib.gunzip);
 
+// Funzione per estrarre l'URL EPG dalla playlist M3U
+function extractEPGUrl(m3uContent) {
+    const firstLine = m3uContent.split('\n')[0];
+    if (firstLine.includes('url-tvg=')) {
+        const match = firstLine.match(/url-tvg="([^"]+)"/);
+        return match ? match[1] : null;
+    }
+    return null;
+}
+
 // Funzione per parsare la playlist M3U
 async function parsePlaylist(url) {
     try {
         const m3uResponse = await axios.get(url);
         const m3uContent = m3uResponse.data;
+
+        // Estrai l'URL dell'EPG
+        const epgUrl = extractEPGUrl(m3uContent);
 
         // Estrai i gruppi unici (generi)
         const groups = new Set();
@@ -75,7 +88,8 @@ async function parsePlaylist(url) {
             groups: uniqueGroups.map(group => ({
                 name: group,
                 value: group
-            }))
+            })),
+            epgUrl
         };
     } catch (error) {
         console.error('Errore nel parsing della playlist:', error);
