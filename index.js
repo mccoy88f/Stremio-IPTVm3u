@@ -2,6 +2,7 @@ const { addonBuilder } = require('stremio-addon-sdk');
 const PlaylistTransformer = require('./playlist-transformer');
 const { catalogHandler, streamHandler } = require('./handlers');
 const metaHandler = require('./meta-handler');
+const EPGManager = require('./epg-manager');
 
 async function generateConfig() {
     try {
@@ -29,6 +30,7 @@ async function generateConfig() {
             enableEPG: process.env.ENABLE_EPG === 'yes',
             PROXY_URL: process.env.PROXY_URL || null,
             PROXY_PASSWORD: process.env.PROXY_PASSWORD || null,
+            FORCE_PROXY: process.env.FORCE_PROXY === 'yes',
             
             cacheSettings: {
                 updateInterval: 12 * 60 * 60 * 1000,
@@ -39,7 +41,7 @@ async function generateConfig() {
             
             epgSettings: {
                 maxProgramsPerChannel: 50,
-                updateInterval: 12 * 60 * 60 * 1000,
+                updateInterval: 24 * 60 * 60 * 1000, // Aggiornamento ogni 24 ore
                 cacheExpiry: 24 * 60 * 60 * 1000
             },
             
@@ -113,10 +115,6 @@ async function startAddon() {
         await CacheManager.updateCache(true).catch(error => {
             console.error('Error updating cache on startup:', error);
         });
-
-        // Create and start the server
-        const addonInterface = builder.getInterface();
-        const serveHTTP = require('stremio-addon-sdk/src/serveHTTP');
 
         // Personalizza la pagina HTML
         const landingTemplate = landing => `
@@ -193,16 +191,24 @@ async function startAddon() {
 </body>
 </html>`;
 
-        // Avvia il server con il template personalizzato
-        serveHTTP(addonInterface, { port: config.port, landingTemplate })
-            .then(({ url }) => {
-                console.log('Addon active on:', url);
-                console.log('Add the following URL to Stremio:', url + 'manifest.json');
-            })
-            .catch(error => {
-                console.error('Failed to start server:', error);
-                process.exit(1);
-            });
+        // Create and start the server
+        const addonInterface = builder.getInterface();
+        const serveHTTP = require('stremio-addon-sdk/src/serveHTTP');
+
+        // Avvia prima il server
+        await serveHTTP(addonInterface, { port: config.port, landingTemplate });
+        
+        console.log('Addon attivo su:', `http://localhost:${config.port}`);
+        console.log('Aggiungi il seguente URL a Stremio:', `http://localhost:${config.port}/manifest.json`);
+
+        // Inizializza l'EPG dopo l'avvio del server se è abilitata
+        if (config.enableEPG) {
+            console.log('Inizializzazione EPG pianificata tra 5 minuti...');
+            await EPGManager.initializeEPG(config.EPG_URL);
+        } else {
+            console.log('EPG disabilitata, skip inizializzazione');
+        }
+
     } catch (error) {
         console.error('Failed to start addon:', error);
         process.exit(1);
