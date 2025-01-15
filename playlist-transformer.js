@@ -30,12 +30,11 @@ class PlaylistTransformer {
      * Converte un canale nel formato Stremio
      */
     transformChannelToStremio(channel) {
-        
         // Usa l'ID originale dal tvg-id se presente, altrimenti genera un ID normalizzato
         const id = channel.tvg?.id ? 
             `tv|${channel.tvg.id}` : 
             `tv|${channel.name.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')}`;
-            
+        
         // Aggiungi il genere alla lista dei generi
         if (channel.group) {
             this.stremioData.genres.add(channel.group);
@@ -78,6 +77,16 @@ class PlaylistTransformer {
         this.stremioData.genres.clear();
         this.stremioData.channels = [];
         
+        // Estrai l'URL dell'EPG dall'header della playlist
+        let epgUrl = null;
+        if (lines[0].includes('url-tvg=')) {
+            const match = lines[0].match(/url-tvg="([^"]+)"/);
+            if (match) {
+                epgUrl = match[1];
+                console.log('EPG URL trovato nella playlist:', epgUrl);
+            }
+        }
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             
@@ -107,7 +116,6 @@ class PlaylistTransformer {
                     name = tvgData.name;
                 }
                 
-
                 // Controlla se ci sono opzioni VLC nelle righe successive
                 const { headers, nextIndex } = this.parseVLCOpts(lines, i + 1);
                 i = nextIndex - 1; // Aggiorna l'indice del ciclo
@@ -131,7 +139,8 @@ class PlaylistTransformer {
 
         const result = {
             genres: Array.from(this.stremioData.genres),
-            channels: this.stremioData.channels
+            channels: this.stremioData.channels,
+            epgUrl
         };
 
         console.log(`[PlaylistTransformer] ✓ Canali processati: ${result.channels.length}`);
