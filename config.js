@@ -12,6 +12,7 @@ const config = {
     // Proxy configuration
     PROXY_URL: process.env.PROXY_URL || null,
     PROXY_PASSWORD: process.env.PROXY_PASSWORD || null,
+    FORCE_PROXY: process.env.FORCE_PROXY === 'yes', // Nuova configurazione
     
     // Cache settings
     cacheSettings: {
