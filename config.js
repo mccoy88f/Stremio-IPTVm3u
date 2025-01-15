@@ -4,7 +4,7 @@ const config = {
     
     // Content sources
     M3U_URL: process.env.M3U_URL || 'https://raw.githubusercontent.com/Tundrak/IPTV-Italia/refs/heads/main/iptvitaplus.m3u',
-    EPG_URL: 'https://www.epgitalia.tv/gzip',
+    EPG_URL: process.env.EPG_URL || null, // Sarà popolato con l'URL dalla playlist se non specificato
     
     // Feature flags
     enableEPG: process.env.ENABLE_EPG === 'yes',
@@ -60,6 +60,13 @@ const config = {
                 ]
             }
         ]
+    }
+};
+
+// Funzione per aggiornare l'URL dell'EPG
+config.updateEPGUrl = function(url) {
+    if (!this.EPG_URL && url) {  // Aggiorna solo se non è già impostato tramite variabili d'ambiente
+        this.EPG_URL = url;
     }
 };
 
