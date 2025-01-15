@@ -30,10 +30,11 @@ class PlaylistTransformer {
      * Converte un canale nel formato Stremio
      */
     transformChannelToStremio(channel) {
-        // Usa l'ID originale dal tvg-id se presente, altrimenti genera un ID normalizzato
-        const id = channel.tvg?.id ? 
-            `tv|${channel.tvg.id}` : 
-            `tv|${channel.name.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')}`;
+        // Usa tvg-id per l'identificatore se disponibile, altrimenti usa il nome del canale
+        const id = `tv|${channel.tvg?.id || channel.name}`;
+        
+        // Usa tvg-name se disponibile, altrimenti usa il nome originale
+        const name = channel.tvg?.name || channel.name;
         
         // Aggiungi il genere alla lista dei generi
         if (channel.group) {
@@ -43,13 +44,13 @@ class PlaylistTransformer {
         const transformedChannel = {
             id,
             type: 'tv',
-            name: channel.name,
+            name: name,
             genre: channel.group ? [channel.group] : [],
             posterShape: 'square',
             poster: channel.tvg?.logo,
             background: channel.tvg?.logo,
             logo: channel.tvg?.logo,
-            description: `Canale: ${channel.name}`,
+            description: `Canale: ${name}`,
             runtime: 'LIVE',
             behaviorHints: {
                 defaultVideoId: id,
@@ -110,12 +111,7 @@ class PlaylistTransformer {
                 // Estrai il nome del canale e puliscilo
                 const nameParts = metadata.split(',');
                 let name = nameParts[nameParts.length - 1].trim();
-                
-                // Usa il tvg-name se disponibile, altrimenti usa il nome estratto
-                if (tvgData.name) {
-                    name = tvgData.name;
-                }
-                
+
                 // Controlla se ci sono opzioni VLC nelle righe successive
                 const { headers, nextIndex } = this.parseVLCOpts(lines, i + 1);
                 i = nextIndex - 1; // Aggiorna l'indice del ciclo
