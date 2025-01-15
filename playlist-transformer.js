@@ -31,13 +31,11 @@ class PlaylistTransformer {
      */
     transformChannelToStremio(channel) {
         
-        // Normalizza il nome del canale per l'ID
-        const normalizedName = channel.name
-            .replace(/[^a-zA-Z0-9]/g, '_')
-            .replace(/_+/g, '_');
-        
-        const id = `tv|${normalizedName}`;
-        
+        // Usa l'ID originale dal tvg-id se presente, altrimenti genera un ID normalizzato
+        const id = channel.tvg?.id ? 
+            `tv|${channel.tvg.id}` : 
+            `tv|${channel.name.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')}`;
+            
         // Aggiungi il genere alla lista dei generi
         if (channel.group) {
             this.stremioData.genres.add(channel.group);
